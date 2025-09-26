@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,20 +7,96 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { User, Bell, Shield, Database, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
+import { api } from "@/lib/api";
 
 export default function Settings() {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
   const { toast } = useToast();
+  const { user, token, setUser } = useUser();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<string>("profile");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const handleSave = () => {
-    toast({
-      title: "Settings saved",
-      description: "Your preferences have been updated successfully.",
-    });
+  // Sync tab with URL hash (#appearance, #profile, etc.)
+  useEffect(() => {
+    const h = location.hash?.replace('#', '') || '';
+    const valid: readonly string[] = ["profile", "notifications", "security", "data", "appearance"];
+    if (h && valid.includes(h)) {
+      setTab(h);
+    }
+  }, [location.hash]);
+
+  useEffect(() => {
+    // Load latest user profile
+    (async () => {
+      try {
+        if (!token) return;
+        const me = await api<{ id: string; firstName: string; lastName: string; company: string; email: string; role: string }>(
+          '/api/user/me',
+          { token }
+        );
+        setUser({
+          id: me.id,
+          firstName: me.firstName,
+          lastName: me.lastName,
+          company: me.company,
+          email: me.email,
+          role: (me.role as 'publisher' | 'advertiser'),
+        });
+        (document.getElementById('firstName') as HTMLInputElement).value = me.firstName;
+        (document.getElementById('lastName') as HTMLInputElement).value = me.lastName;
+        (document.getElementById('email') as HTMLInputElement).value = me.email;
+        (document.getElementById('company') as HTMLInputElement).value = me.company;
+      } catch (e) {
+        // Non-fatal
+        console.warn(e);
+      }
+    })();
+  }, [token, setUser]);
+
+  const handleSave = async () => {
+    try {
+      if (!token) return;
+      const payload = {
+        firstName: (document.getElementById('firstName') as HTMLInputElement).value,
+        lastName: (document.getElementById('lastName') as HTMLInputElement).value,
+        email: (document.getElementById('email') as HTMLInputElement).value,
+        company: (document.getElementById('company') as HTMLInputElement).value,
+      };
+      const updated = await api<{ id: string; firstName: string; lastName: string; company: string; email: string; role: string }>(
+        '/api/user/me',
+        { method: 'PUT', body: payload, token }
+      );
+      setUser({
+        id: updated.id,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        company: updated.company,
+        email: updated.email,
+        role: (updated.role as 'publisher' | 'advertiser'),
+      });
+      toast({ title: 'Settings saved', description: 'Your profile was updated.' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      toast({ title: 'Update failed', description: message, variant: 'destructive' });
+    }
   };
 
   return (
@@ -31,7 +108,7 @@ export default function Settings() {
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); navigate(`#${v}`); }} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
@@ -152,7 +229,29 @@ export default function Settings() {
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input id="confirmPassword" type="password" />
               </div>
-              <Button onClick={handleSave} className="bg-gradient-mixed hover:opacity-90">
+              <Button
+                onClick={async () => {
+                  try {
+                    if (!token) return;
+                    const currentPassword = (document.getElementById('currentPassword') as HTMLInputElement).value;
+                    const newPassword = (document.getElementById('newPassword') as HTMLInputElement).value;
+                    const confirm = (document.getElementById('confirmPassword') as HTMLInputElement).value;
+                    if (newPassword !== confirm) {
+                      toast({ title: 'Passwords do not match', variant: 'destructive' });
+                      return;
+                    }
+                    await api('/api/user/password', { method: 'PUT', token, body: { currentPassword, newPassword } });
+                    toast({ title: 'Password updated' });
+                    (document.getElementById('currentPassword') as HTMLInputElement).value = '';
+                    (document.getElementById('newPassword') as HTMLInputElement).value = '';
+                    (document.getElementById('confirmPassword') as HTMLInputElement).value = '';
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : 'Unknown error';
+                    toast({ title: 'Update failed', description: message, variant: 'destructive' });
+                  }
+                }}
+                className="bg-gradient-mixed hover:opacity-90"
+              >
                 Update Password
               </Button>
             </CardContent>
@@ -184,7 +283,29 @@ export default function Settings() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Download a copy of your account data
                   </p>
-                  <Button variant="outline" className="mt-2">
+                  <Button
+                    variant="outline"
+                    className="mt-2"
+                    onClick={async () => {
+                      try {
+                        if (!token) return;
+                        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/user/export`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (!res.ok) throw new Error('Export failed');
+                        const blob = new Blob([await res.text()], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'prachaar-ai-export.json';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      } catch (e) {
+                        const message = e instanceof Error ? e.message : 'Unknown error';
+                        toast({ title: 'Export failed', description: message, variant: 'destructive' });
+                      }
+                    }}
+                  >
                     Export Data
                   </Button>
                 </div>
@@ -193,9 +314,42 @@ export default function Settings() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Permanently delete your account and all data
                   </p>
-                  <Button variant="destructive" className="mt-2">
-                    Delete Account
-                  </Button>
+                  <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="mt-2">Delete Account</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action is permanent and will remove your profile and associated data. You cannot undo this.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:opacity-90"
+                          onClick={async () => {
+                            try {
+                              if (!token) return;
+                              const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/user/me`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (!res.ok) throw new Error('Delete failed');
+                              localStorage.removeItem('auth');
+                              window.location.href = '/login';
+                            } catch (e) {
+                              const message = e instanceof Error ? e.message : 'Unknown error';
+                              toast({ title: 'Delete failed', description: message, variant: 'destructive' });
+                            }
+                          }}
+                        >
+                          Confirm Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </CardContent>

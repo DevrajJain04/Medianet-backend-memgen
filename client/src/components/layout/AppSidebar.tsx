@@ -30,12 +30,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useUser } from "@/contexts/UserContext";
+import { Button } from "@/components/ui/button";
 
 const mainNavItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard, roles: ['admin'] },
   { title: "Publisher", url: "/publisher", icon: Users, roles: ['publisher', 'admin'] },
   { title: "Advertiser", url: "/advertiser", icon: Megaphone, roles: ['advertiser', 'admin'] },
-  { title: "Matching", url: "/matching", icon: Target, roles: ['publisher', 'advertiser', 'admin'] },
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ['publisher', 'advertiser', 'admin'] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ['publisher', 'advertiser', 'admin'] },
 ];
@@ -65,13 +65,10 @@ export function AppSidebar() {
       ? "bg-gradient-mixed text-primary-foreground font-medium shadow-glow"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
-  // Filter navigation items based on user role
+  // Filter navigation items based on user role (no cross-role leakage)
   const getVisibleNavItems = () => {
     if (!isLoggedIn || !userType) return [];
-    
-    return mainNavItems.filter(item => 
-      item.roles.includes(userType) || item.roles.includes('admin')
-    );
+    return mainNavItems.filter(item => item.roles.includes(userType));
   };
 
   // Get role-specific navigation items
@@ -82,7 +79,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-16" : "w-72"} collapsible="icon">
+    <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-mixed rounded-lg flex items-center justify-center">
@@ -91,10 +88,10 @@ export function AppSidebar() {
           {!isCollapsed && (
             <div>
               <h1 className="text-lg font-semibold text-sidebar-accent-foreground">
-                Dual-Score
+                Prachaar AI
               </h1>
               <p className="text-xs text-sidebar-foreground">
-                {userType ? `${userType.charAt(0).toUpperCase() + userType.slice(1)} Portal` : 'AdTech Platform'}
+                {userType ? `${userType.charAt(0).toUpperCase() + userType.slice(1)} Portal` : 'Prachaar AI Platform'}
               </p>
             </div>
           )}
@@ -126,31 +123,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Role-specific Navigation */}
-        {!isCollapsed && getRoleSpecificItems().length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-xs">
-              {userType === 'publisher' ? 'Publisher Tools' : 'Advertiser Tools'}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {getRoleSpecificItems().map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        className={getNavClass(item.url)}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span className="ml-2">{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        {/* Role-specific Navigation removed */}
+
+        {/* Logout button removed from sidebar */}
       </SidebarContent>
     </Sidebar>
   );
