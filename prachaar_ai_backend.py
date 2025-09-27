@@ -45,6 +45,10 @@ from functools import lru_cache
 import re
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Web scraping and HTML parsing for ad identification
+from bs4 import BeautifulSoup
+import urllib.parse
+
 from content_analyser import DistilBertContentAnalyzer
 
 # Configure logging
@@ -133,6 +137,31 @@ class RelevantAdsResponse(BaseModel):
     ads: List[AdMetadata]
     total_found: int
     similarity_threshold: float
+
+class ProcessUrlRequest(BaseModel):
+    """Request model for process-url endpoint"""
+    url: str
+
+class AdSpot(BaseModel):
+    """Model for identified ad spot"""
+    element_id: str
+    element_type: str  # div, section, aside, etc.
+    element_class: Optional[str] = None
+    position: str  # top, middle, bottom, sidebar
+    size_estimate: str  # small, medium, large, banner
+    content_type: str  # image, text, video, mixed
+    original_content: Optional[str] = None
+    publisher_ad_content: str  # The replacement ad content
+
+class ProcessUrlResponse(BaseModel):
+    """Response model for process-url endpoint"""
+    success: bool
+    original_url: str
+    processed_html: str
+    identified_ad_spots: List[AdSpot]
+    total_spots_identified: int
+    processing_time: float
+    message: str
 
 # ================================
 # DYNAMIC TRENDS FUNCTIONS
@@ -368,6 +397,318 @@ def initialize_gemini():
         logger.error(f"Failed to configure Gemini API: {e}")
         # Don't raise here as it might be configured later
     
+# ================================
+# AD SPOT IDENTIFICATION FUNCTIONS
+# ================================
+
+def identify_ad_spots(soup: BeautifulSoup) -> List[Dict[str, Any]]:
+    """Identify potential ad spots in HTML content using various heuristics"""
+    ad_spots = []
+    spot_counter = 0
+    
+    # Common ad-related selectors and patterns
+    ad_selectors = [
+        # Class-based selectors (common ad container classes)
+        '[class*="ad-"]', '[class*="advertisement"]', '[class*="advert"]',
+        '[class*="banner"]', '[class*="sponsor"]', '[class*="promo"]',
+        '[class*="commercial"]', '[class*="marketing"]',
+        
+        # ID-based selectors
+        '[id*="ad-"]', '[id*="advertisement"]', '[id*="banner"]',
+        '[id*="sponsor"]', '[id*="promo"]',
+        
+        # Generic containers that often contain ads
+        'aside', '.sidebar', '.widget', '.module',
+        
+        # Specific ad network containers
+        '[class*="google-ad"]', '[class*="adsense"]', '[class*="doubleclick"]',
+        '.adsbygoogle', '[data-ad-client]', '[data-ad-slot]'
+    ]
+    
+    # Elements commonly used for ads
+    ad_elements = ['aside', 'section', 'div', 'article']
+    
+    found_elements = set()  # To avoid duplicates
+    
+    # Method 1: Find elements using CSS selectors
+    for selector in ad_selectors:
+        try:
+            elements = soup.select(selector)
+            for element in elements:
+                if element not in found_elements:
+                    found_elements.add(element)
+                    ad_spot = analyze_element_for_ad_spot(element, spot_counter, "selector_match")
+                    if ad_spot:
+                        ad_spots.append(ad_spot)
+                        spot_counter += 1
+        except Exception as e:
+            logger.debug(f"Error with selector {selector}: {e}")
+            continue
+    
+    # Method 2: Find elements with suspicious dimensions/styles
+    for element_type in ad_elements:
+        elements = soup.find_all(element_type)
+        for element in elements:
+            if element not in found_elements:
+                if is_likely_ad_by_attributes(element):
+                    found_elements.add(element)
+                    ad_spot = analyze_element_for_ad_spot(element, spot_counter, "attribute_analysis")
+                    if ad_spot:
+                        ad_spots.append(ad_spot)
+                        spot_counter += 1
+    
+    # Method 3: Find elements with ad-like content patterns
+    all_divs = soup.find_all(['div', 'section', 'aside'])
+    for element in all_divs:
+        if element not in found_elements:
+            if contains_ad_like_content(element):
+                found_elements.add(element)
+                ad_spot = analyze_element_for_ad_spot(element, spot_counter, "content_analysis")
+                if ad_spot:
+                    ad_spots.append(ad_spot)
+                    spot_counter += 1
+    
+    return ad_spots
+
+def analyze_element_for_ad_spot(element, spot_id: int, detection_method: str) -> Dict[str, Any]:
+    """Analyze an element to extract ad spot information"""
+    try:
+        # Get element attributes
+        element_id = element.get('id', f'ad-spot-{spot_id}')
+        element_class = ' '.join(element.get('class', []))
+        element_type = element.name
+        
+        # Determine position
+        position = determine_element_position(element)
+        
+        # Estimate size
+        size_estimate = estimate_element_size(element)
+        
+        # Determine content type
+        content_type = analyze_content_type(element)
+        
+        # Extract original content (first 200 chars)
+        original_content = element.get_text(strip=True)[:200] if element.get_text(strip=True) else None
+        
+        # Generate publisher ad content
+        publisher_ad_content = generate_publisher_ad_content(position, size_estimate, content_type)
+        
+        return {
+            'element_id': element_id,
+            'element_type': element_type,
+            'element_class': element_class,
+            'position': position,
+            'size_estimate': size_estimate,
+            'content_type': content_type,
+            'original_content': original_content,
+            'publisher_ad_content': publisher_ad_content,
+            'detection_method': detection_method
+        }
+    except Exception as e:
+        logger.error(f"Error analyzing element for ad spot: {e}")
+        return None
+
+def is_likely_ad_by_attributes(element) -> bool:
+    """Check if element is likely an ad based on attributes"""
+    # Check style attributes for ad-like dimensions
+    style = element.get('style', '').lower()
+    
+    # Common ad dimensions in CSS
+    ad_dimensions_patterns = [
+        r'width\s*:\s*300px', r'width\s*:\s*728px', r'width\s*:\s*970px',
+        r'height\s*:\s*250px', r'height\s*:\s*90px', r'height\s*:\s*600px',
+        r'300\s*x\s*250', r'728\s*x\s*90', r'970\s*x\s*250'
+    ]
+    
+    for pattern in ad_dimensions_patterns:
+        if re.search(pattern, style):
+            return True
+    
+    # Check for ad-related data attributes
+    ad_attributes = ['data-ad', 'data-google', 'data-slot', 'data-client']
+    for attr in ad_attributes:
+        if element.get(attr):
+            return True
+    
+    # Check class names for ad-related keywords
+    class_names = ' '.join(element.get('class', [])).lower()
+    ad_keywords = ['advertisement', 'advert', 'sponsor', 'promo', 'commercial', 'banner']
+    
+    for keyword in ad_keywords:
+        if keyword in class_names:
+            return True
+    
+    return False
+
+def contains_ad_like_content(element) -> bool:
+    """Check if element contains ad-like content"""
+    text = element.get_text(strip=True).lower()
+    
+    # Ad-related keywords in content
+    ad_content_keywords = [
+        'advertisement', 'sponsored', 'promoted', 'ad by',
+        'buy now', 'click here', 'limited time', 'special offer',
+        'discount', 'sale', 'shop now', 'learn more'
+    ]
+    
+    for keyword in ad_content_keywords:
+        if keyword in text:
+            return True
+    
+    # Check for promotional URLs
+    links = element.find_all('a')
+    for link in links:
+        href = link.get('href', '').lower()
+        if any(domain in href for domain in ['amazon.com', 'ebay.com', 'target.com', 'walmart.com']):
+            return True
+    
+    # Check for images with ad-like alt text
+    images = element.find_all('img')
+    for img in images:
+        alt_text = img.get('alt', '').lower()
+        if any(keyword in alt_text for keyword in ['ad', 'advertisement', 'sponsor', 'promo']):
+            return True
+    
+    return False
+
+def determine_element_position(element) -> str:
+    """Determine the position of the element on the page"""
+    # This is a simplified position detection
+    # In a real implementation, you might use more sophisticated analysis
+    
+    # Check parent hierarchy for position clues
+    parent_classes = []
+    current = element.parent
+    
+    while current and current.name != 'html':
+        if current.get('class'):
+            parent_classes.extend(current.get('class'))
+        current = current.parent
+    
+    parent_class_str = ' '.join(parent_classes).lower()
+    
+    if any(term in parent_class_str for term in ['header', 'top', 'nav']):
+        return 'top'
+    elif any(term in parent_class_str for term in ['footer', 'bottom']):
+        return 'bottom'
+    elif any(term in parent_class_str for term in ['sidebar', 'aside', 'side']):
+        return 'sidebar'
+    else:
+        return 'middle'
+
+def estimate_element_size(element) -> str:
+    """Estimate the size of the ad element"""
+    # Check inline styles for dimensions
+    style = element.get('style', '').lower()
+    
+    # Extract width and height if present
+    width_match = re.search(r'width\s*:\s*(\d+)px', style)
+    height_match = re.search(r'height\s*:\s*(\d+)px', style)
+    
+    width = int(width_match.group(1)) if width_match else None
+    height = int(height_match.group(1)) if height_match else None
+    
+    # Check for common ad sizes
+    if width and height:
+        # Standard banner sizes
+        if (width >= 728 and height >= 90) or (width >= 970):
+            return 'banner'
+        elif width >= 300 and height >= 250:
+            return 'large'
+        elif width >= 200 or height >= 150:
+            return 'medium'
+        else:
+            return 'small'
+    
+    # Fallback: estimate based on content
+    text_length = len(element.get_text(strip=True))
+    if text_length > 500:
+        return 'large'
+    elif text_length > 100:
+        return 'medium'
+    else:
+        return 'small'
+
+def analyze_content_type(element) -> str:
+    """Analyze what type of content the element contains"""
+    has_images = len(element.find_all('img')) > 0
+    has_videos = len(element.find_all(['video', 'iframe'])) > 0
+    has_text = bool(element.get_text(strip=True))
+    
+    if has_videos:
+        return 'video'
+    elif has_images and has_text:
+        return 'mixed'
+    elif has_images:
+        return 'image'
+    elif has_text:
+        return 'text'
+    else:
+        return 'empty'
+
+def generate_publisher_ad_content(position: str, size: str, content_type: str) -> str:
+    """Generate appropriate publisher ad content based on spot characteristics"""
+    # Publisher ad templates based on position and size
+    publisher_ads = {
+        'banner': {
+            'top': '<div class="publisher-ad banner-top" style="width: 100%; height: 90px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-family: Arial, sans-serif;"><div style="text-align: center;"><h3 style="margin: 0; font-size: 18px;">Premium Brand Partnership</h3><p style="margin: 5px 0 0; font-size: 12px;">Discover Quality Products & Services</p></div></div>',
+            'bottom': '<div class="publisher-ad banner-bottom" style="width: 100%; height: 90px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); display: flex; align-items: center; justify-content: center; color: white; font-family: Arial, sans-serif;"><div style="text-align: center;"><h3 style="margin: 0; font-size: 18px;">Featured Recommendations</h3><p style="margin: 5px 0 0; font-size: 12px;">Curated for You</p></div></div>'
+        },
+        'large': {
+            'sidebar': '<div class="publisher-ad large-sidebar" style="width: 100%; min-height: 250px; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 8px; font-family: Arial, sans-serif;"><h3 style="color: #333; margin-top: 0;">Trending Now</h3><div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"><p style="margin: 0; color: #666;">Discover amazing products and services tailored for you.</p></div><div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"><p style="margin: 0; color: #666;">Join thousands of satisfied customers.</p></div></div>',
+            'middle': '<div class="publisher-ad large-middle" style="width: 100%; min-height: 250px; background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 20px; border-radius: 8px; text-align: center; font-family: Arial, sans-serif;"><h2 style="color: #333; margin-top: 0;">Featured Content</h2><p style="color: #666; font-size: 16px;">Handpicked recommendations just for you</p><div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"><h4 style="color: #333; margin: 0 0 10px;">Premium Experience</h4><p style="color: #666; margin: 0;">Unlock exclusive features and content</p></div></div>'
+        },
+        'medium': {
+            'any': '<div class="publisher-ad medium" style="width: 100%; height: 150px; background: linear-gradient(135deg, #c3cfe2 0%, #c3cfe2 100%); display: flex; align-items: center; justify-content: center; border-radius: 5px; font-family: Arial, sans-serif;"><div style="text-align: center; color: #333;"><h4 style="margin: 0; font-size: 16px;">Quality Recommendations</h4><p style="margin: 5px 0 0; font-size: 12px; color: #666;">Curated Content & Services</p></div></div>'
+        },
+        'small': {
+            'any': '<div class="publisher-ad small" style="width: 100%; height: 80px; background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%); display: flex; align-items: center; justify-content: center; border-radius: 3px; font-family: Arial, sans-serif;"><div style="text-align: center; color: #333;"><strong style="font-size: 14px;">Featured</strong></div></div>'
+        }
+    }
+    
+    # Select appropriate template
+    if size == 'banner':
+        return publisher_ads['banner'].get(position, publisher_ads['banner']['top'])
+    elif size == 'large':
+        return publisher_ads['large'].get(position, publisher_ads['large']['middle'])
+    elif size == 'medium':
+        return publisher_ads['medium']['any']
+    else:
+        return publisher_ads['small']['any']
+
+def replace_ad_spots_in_html(html_content: str, ad_spots: List[Dict[str, Any]]) -> str:
+    """Replace identified ad spots with publisher ad content"""
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Create a mapping of element IDs to new content
+        replacements = {}
+        for spot in ad_spots:
+            element_id = spot['element_id']
+            new_content = spot['publisher_ad_content']
+            replacements[element_id] = new_content
+        
+        # Find and replace elements
+        for element_id, new_content in replacements.items():
+            # Try to find by ID first
+            element = soup.find(id=element_id)
+            
+            # If not found by ID, try other methods
+            if not element:
+                # This is a simplified approach - in production you'd want more robust element matching
+                continue
+            
+            # Replace the element content
+            if element:
+                new_soup = BeautifulSoup(new_content, 'html.parser')
+                element.replace_with(new_soup)
+        
+        return str(soup)
+        
+    except Exception as e:
+        logger.error(f"Error replacing ad spots in HTML: {e}")
+        return html_content  # Return original if replacement fails
+
 # ================================
 # UTILITY FUNCTIONS
 # ================================
@@ -1148,6 +1489,176 @@ async def delete_ad(ad_id: str):
         logger.error(f"Error deleting ad {ad_id}: {e}")
         raise HTTPException(status_code=500, detail="Error deleting ad")
 
+@app.post("/process-url", response_model=ProcessUrlResponse)
+async def process_url_for_ad_spots(request: ProcessUrlRequest):
+    """
+    NEW ENDPOINT: Process URL to identify ad spots and replace with publisher ads
+    
+    This endpoint:
+    1. Fetches the HTML content from the provided URL
+    2. Identifies potential ad spots using various heuristics
+    3. Replaces identified ad spots with publisher ad content
+    4. Returns the modified HTML along with details about identified spots
+    """
+    start_time = time.time()
+    
+    try:
+        logger.info(f"Processing URL for ad spots: {request.url}")
+        
+        # Validate URL
+        if not request.url.startswith(('http://', 'https://')):
+            raise HTTPException(status_code=400, detail="Invalid URL format. URL must start with http:// or https://")
+        
+        # Fetch HTML content from URL
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            }
+            
+            response = requests.get(request.url, headers=headers, timeout=30)
+            response.raise_for_status()
+            html_content = response.text
+            
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+        
+        # Parse HTML content
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse HTML: {str(e)}")
+        
+        # Identify ad spots
+        logger.info("Identifying ad spots...")
+        ad_spots_data = identify_ad_spots(soup)
+        
+        # Convert to response format
+        ad_spots = []
+        for spot_data in ad_spots_data:
+            ad_spot = AdSpot(
+                element_id=spot_data['element_id'],
+                element_type=spot_data['element_type'],
+                element_class=spot_data.get('element_class'),
+                position=spot_data['position'],
+                size_estimate=spot_data['size_estimate'],
+                content_type=spot_data['content_type'],
+                original_content=spot_data.get('original_content'),
+                publisher_ad_content=spot_data['publisher_ad_content']
+            )
+            ad_spots.append(ad_spot)
+        
+        # Replace ad spots in HTML
+        logger.info(f"Replacing {len(ad_spots_data)} identified ad spots...")
+        processed_html = replace_ad_spots_in_html(html_content, ad_spots_data)
+        
+        processing_time = time.time() - start_time
+        
+        logger.info(f"Successfully processed URL - found {len(ad_spots)} ad spots in {processing_time:.2f}s")
+        
+        return ProcessUrlResponse(
+            success=True,
+            original_url=request.url,
+            processed_html=processed_html,
+            identified_ad_spots=ad_spots,
+            total_spots_identified=len(ad_spots),
+            processing_time=round(processing_time, 2),
+            message=f"Successfully identified and replaced {len(ad_spots)} ad spots"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        processing_time = time.time() - start_time
+        logger.error(f"Error processing URL {request.url}: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error while processing URL: {str(e)}"
+        )
+
+@app.post("/identify-ad-spots")
+async def identify_ad_spots_only(request: ProcessUrlRequest):
+    """
+    NEW ENDPOINT: Identify ad spots in a URL without replacement
+    
+    This endpoint only identifies ad spots and returns information about them
+    without modifying the original HTML content.
+    """
+    start_time = time.time()
+    
+    try:
+        logger.info(f"Identifying ad spots in URL: {request.url}")
+        
+        # Validate URL
+        if not request.url.startswith(('http://', 'https://')):
+            raise HTTPException(status_code=400, detail="Invalid URL format. URL must start with http:// or https://")
+        
+        # Fetch HTML content from URL
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            }
+            
+            response = requests.get(request.url, headers=headers, timeout=30)
+            response.raise_for_status()
+            html_content = response.text
+            
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+        
+        # Parse HTML content
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse HTML: {str(e)}")
+        
+        # Identify ad spots
+        logger.info("Identifying ad spots...")
+        ad_spots_data = identify_ad_spots(soup)
+        
+        # Convert to response format
+        ad_spots = []
+        for spot_data in ad_spots_data:
+            ad_spot = AdSpot(
+                element_id=spot_data['element_id'],
+                element_type=spot_data['element_type'],
+                element_class=spot_data.get('element_class'),
+                position=spot_data['position'],
+                size_estimate=spot_data['size_estimate'],
+                content_type=spot_data['content_type'],
+                original_content=spot_data.get('original_content'),
+                publisher_ad_content=spot_data['publisher_ad_content']
+            )
+            ad_spots.append(ad_spot)
+        
+        processing_time = time.time() - start_time
+        
+        logger.info(f"Successfully identified {len(ad_spots)} ad spots in {processing_time:.2f}s")
+        
+        return {
+            "success": True,
+            "original_url": request.url,
+            "identified_ad_spots": ad_spots,
+            "total_spots_identified": len(ad_spots),
+            "processing_time": round(processing_time, 2),
+            "message": f"Successfully identified {len(ad_spots)} ad spots"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        processing_time = time.time() - start_time
+        logger.error(f"Error identifying ad spots in URL {request.url}: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error while identifying ad spots: {str(e)}"
+        )
+
 @app.get("/health")
 async def health_check():
     """Comprehensive health check including trends system"""
@@ -1204,7 +1715,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "prachaar_ai_backend:app",  # Updated to match your filename
         host="0.0.0.0",
-        port=8000,
+        port=8001,  # Changed port to avoid conflicts
         reload=True,
         log_level="info"
     )
