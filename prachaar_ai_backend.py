@@ -1,15 +1,16 @@
 # Prachaar AI - Complete Backend Monolith Service
-# FastAPI service with 3 main endpoints for ad management and matching
+# FastAPI service with 2 main endpoints for ad management and matching
 
 import os
 import io
 import base64
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import json
 import asyncio
 from pathlib import Path
+import time
 
 # FastAPI and web framework imports
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -41,6 +42,7 @@ from pytrends.request import TrendReq
 import requests
 import logging
 from functools import lru_cache
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -83,6 +85,14 @@ mongodb_db = None
 chroma_client = None
 chroma_collection = None
 
+# Dynamic trends cache
+trends_cache = {
+    "viral_concepts": [],
+    "action_words": [],
+    "last_updated": None,
+    "cache_duration": timedelta(hours=6)  # Update every 6 hours
+}
+
 # ================================
 # PYDANTIC MODELS FOR API
 # ================================
@@ -92,19 +102,6 @@ class AdCreativeResponse(BaseModel):
     ad_id: str
     creativity_score: float
     vitality_score: float
-    message: str
-
-class GenerateAdRequest(BaseModel):
-    """Request model for generate-ad endpoint"""
-    topic: Optional[str] = None
-    style: Optional[str] = "meme"
-
-class GenerateAdResponse(BaseModel):
-    """Response model for generate-ad endpoint"""
-    ad_id: str
-    image_url: str
-    caption: str
-    trends_used: List[str]
     message: str
 
 class RelevantAdsRequest(BaseModel):
@@ -127,6 +124,161 @@ class RelevantAdsResponse(BaseModel):
     ads: List[AdMetadata]
     total_found: int
     similarity_threshold: float
+
+# ================================
+# DYNAMIC TRENDS FUNCTIONS
+# ================================
+
+def get_trending_topics(limit: int = 20) -> List[str]:
+    """Get trending topics using PyTrends"""
+    try:
+        pytrends = TrendReq(hl='en-US', tz=360, retries=2, backoff_factor=0.1)
+        
+        # Get daily trending searches
+        trending_searches = pytrends.trending_searches(pn='united_states')
+        daily_trends = trending_searches[0].head(limit).tolist()
+        
+        # Also get realtime trending searches
+        try:
+            realtime_trends = pytrends.realtime_trending_searches(pn='US')
+            if realtime_trends is not None and not realtime_trends.empty:
+                realtime_list = realtime_trends['title'].head(10).tolist()
+                # Combine and deduplicate
+                all_trends = list(dict.fromkeys(daily_trends + realtime_list))
+                return all_trends[:limit]
+        except Exception as e:
+            logger.warning(f"Could not fetch realtime trends: {e}")
+            
+        return daily_trends
+        
+    except Exception as e:
+        logger.error(f"Error fetching trends: {e}")
+        # Return some default trending topics
+        return ["AI", "technology", "memes", "social media", "innovation", 
+                "viral", "trending", "breaking news", "amazing", "incredible"]
+
+def extract_viral_concepts_from_trends(trends: List[str]) -> List[str]:
+    """Extract viral concepts from trending topics"""
+    viral_concepts = []
+    
+    for trend in trends:
+        # Clean and process the trend
+        trend_lower = trend.lower().strip()
+        
+        # Add variations of the trend that indicate virality
+        viral_concepts.extend([
+            f"trending {trend_lower}",
+            f"viral {trend_lower}",
+            f"breaking {trend_lower}",
+            f"latest {trend_lower}",
+            f"new {trend_lower}",
+            f"{trend_lower} goes viral",
+            f"everyone talking about {trend_lower}",
+            f"must see {trend_lower}",
+            trend_lower  # Original trend
+        ])
+    
+    # Add general viral concepts
+    general_viral_concepts = [
+        "trending viral content", "amazing discovery", "shocking revelation", 
+        "incredible moment", "unbelievable event", "breaking news",
+        "exclusive content", "must see", "going viral", "social media buzz",
+        "internet sensation", "viral phenomenon", "explosive content",
+        "trending now", "hot topic", "everyone's talking about"
+    ]
+    
+    viral_concepts.extend(general_viral_concepts)
+    
+    # Remove duplicates and return
+    return list(dict.fromkeys(viral_concepts))
+
+def extract_action_words_from_trends(trends: List[str]) -> List[str]:
+    """Extract action/urgency words from trending topics and combine with defaults"""
+    action_words = set()
+    
+    # Extract action words from trends using regex patterns
+    action_patterns = [
+        r'\b(new|latest|breaking|urgent|now|today|just|fresh|hot)\b',
+        r'\b(exclusive|first|limited|special|unique|rare)\b',
+        r'\b(amazing|incredible|shocking|unbelievable|stunning)\b',
+        r'\b(must|need|should|have to|got to|check)\b',
+        r'\b(see|watch|look|discover|find|learn)\b',
+        r'\b(get|grab|take|buy|try|use)\b'
+    ]
+    
+    for trend in trends:
+        trend_lower = trend.lower()
+        for pattern in action_patterns:
+            matches = re.findall(pattern, trend_lower)
+            action_words.update(matches)
+    
+    # Add default action words
+    default_action_words = [
+        "now", "today", "urgent", "breaking", "new", "latest", "first time",
+        "exclusive", "limited", "special", "amazing", "incredible", "shocking",
+        "must see", "check out", "watch", "discover", "unbelievable",
+        "stunning", "explosive", "instant", "immediate", "fresh", "hot",
+        "trending", "viral", "popular", "buzzworthy", "game changing",
+        "revolutionary", "groundbreaking", "epic", "massive", "huge",
+        "unprecedented", "rare", "unique", "extraordinary", "phenomenal"
+    ]
+    
+    action_words.update(default_action_words)
+    
+    return list(action_words)
+
+def update_trends_cache():
+    """Update the trends cache if it's stale"""
+    global trends_cache
+    
+    current_time = datetime.now()
+    
+    # Check if cache needs update
+    if (trends_cache["last_updated"] is None or 
+        current_time - trends_cache["last_updated"] > trends_cache["cache_duration"]):
+        
+        logger.info("Updating trends cache...")
+        try:
+            # Get trending topics
+            trending_topics = get_trending_topics(limit=30)
+            
+            # Extract viral concepts and action words
+            viral_concepts = extract_viral_concepts_from_trends(trending_topics)
+            action_words = extract_action_words_from_trends(trending_topics)
+            
+            # Update cache
+            trends_cache.update({
+                "viral_concepts": viral_concepts,
+                "action_words": action_words,
+                "last_updated": current_time,
+                "trending_topics": trending_topics
+            })
+            
+            logger.info(f"Trends cache updated with {len(viral_concepts)} viral concepts and {len(action_words)} action words")
+            
+        except Exception as e:
+            logger.error(f"Failed to update trends cache: {e}")
+            # If update fails and cache is empty, use defaults
+            if not trends_cache["viral_concepts"]:
+                trends_cache["viral_concepts"] = [
+                    "trending viral content", "amazing discovery", "shocking revelation", 
+                    "incredible moment", "unbelievable event", "breaking news"
+                ]
+            if not trends_cache["action_words"]:
+                trends_cache["action_words"] = [
+                    "now", "today", "urgent", "breaking", "new", "latest", 
+                    "exclusive", "amazing", "incredible", "shocking"
+                ]
+
+def get_dynamic_viral_concepts() -> List[str]:
+    """Get current viral concepts from cache"""
+    update_trends_cache()
+    return trends_cache["viral_concepts"]
+
+def get_dynamic_action_words() -> List[str]:
+    """Get current action words from cache"""
+    update_trends_cache()
+    return trends_cache["action_words"]
 
 # ================================
 # INITIALIZATION FUNCTIONS
@@ -369,8 +521,12 @@ def calculate_creativity_score(image: Image.Image, text: str) -> float:
         return 0.5  # Default score
 
 def calculate_vitality_score(image: Image.Image, text: str) -> float:
-    """Calculate vitality/virality score using AI models and advanced content analysis"""
+    """Calculate vitality/virality score using AI models and dynamic trending content analysis"""
     try:
+        # Get dynamic viral concepts and action words
+        viral_concepts = get_dynamic_viral_concepts()
+        action_words = get_dynamic_action_words()
+        
         # Advanced text analysis using DistilBERT for emotional content
         inputs = distilbert_tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
         
@@ -387,20 +543,14 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
             activation_strength = torch.mean(torch.abs(text_embeddings)).item()
             activation_score = min(activation_strength * 2, 1.0)
         
-        # Semantic analysis using CLIP for viral potential
+        # Dynamic semantic analysis using CLIP for viral potential with trending concepts
         clip_inputs = clip_processor(text=[text], images=None, return_tensors="pt", padding=True)
         
         with torch.no_grad():
             text_features = clip_model.get_text_features(clip_inputs['input_ids'])
             
-            # Define viral concept embeddings (you could expand this list)
-            viral_concepts = [
-                "trending viral content", "amazing discovery", "shocking revelation", 
-                "incredible moment", "unbelievable event", "breaking news",
-                "exclusive content", "must see", "going viral", "social media buzz"
-            ]
-            
-            viral_inputs = clip_processor(text=viral_concepts, images=None, return_tensors="pt", padding=True)
+            # Use dynamic viral concepts from trending topics
+            viral_inputs = clip_processor(text=viral_concepts[:20], images=None, return_tensors="pt", padding=True)  # Use top 20 to avoid memory issues
             viral_features = clip_model.get_text_features(viral_inputs['input_ids'])
             
             # Calculate similarity to viral concepts
@@ -408,8 +558,17 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
             viral_similarity = torch.mean(similarity_scores).item()
             viral_concept_score = max(0, viral_similarity)  # Ensure positive
         
-        # Advanced text features for virality
+        # Advanced text features for virality using dynamic action words
         words = text.lower().split()
+        
+        # Dynamic action words analysis
+        action_count = sum(1 for word in action_words if word.lower() in text.lower())
+        action_score = min(action_count / 5.0, 1.0)
+        
+        # Trending topics presence (check if any trending topics are mentioned)
+        trending_topics = trends_cache.get("trending_topics", [])
+        trending_mentions = sum(1 for topic in trending_topics if topic.lower() in text.lower())
+        trending_score = min(trending_mentions / 3.0, 1.0)  # Normalize by expected mentions
         
         # Emotional punctuation analysis
         emotional_punctuation = text.count('!') + text.count('?') * 0.8 + text.count('...') * 0.6
@@ -418,14 +577,6 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
         # Capitalization for emphasis (but not excessive)
         caps_ratio = sum(1 for c in text if c.isupper()) / max(len(text), 1)
         caps_score = min(caps_ratio * 10, 1.0) if caps_ratio < 0.3 else max(0, 1.0 - caps_ratio)
-        
-        # Urgency and action words analysis using CLIP
-        action_words = [
-            "now", "today", "urgent", "breaking", "new", "latest", "first time",
-            "exclusive", "limited", "special", "amazing", "incredible", "shocking"
-        ]
-        action_count = sum(1 for word in action_words if word in text.lower())
-        action_score = min(action_count / 5.0, 1.0)
         
         # Advanced image analysis for visual appeal
         img_array = np.array(image.resize((224, 224)))
@@ -447,11 +598,6 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
             
             # Face detection proxy (images with people often go viral)
             # Simple approximation using skin tone detection
-            skin_tone_ranges = [
-                ([0, 20, 70], [20, 255, 255]),    # Light skin in HSV
-                ([0, 48, 80], [20, 255, 255])     # Darker skin in HSV
-            ]
-            # This is a very basic approximation
             face_proxy_score = min(np.mean(img_array[:,:,0]) / 200.0, 0.3)  # Simple heuristic
             
         else:  # Grayscale
@@ -461,18 +607,19 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
             saturation_score = 0.3  # Moderate score for grayscale
             face_proxy_score = 0.2  # Lower score for grayscale
         
-        # Combine all vitality metrics with weighted average
+        # Combine all vitality metrics with weighted average (updated weights for dynamic features)
         vitality_score = (
             emotional_score * 0.15 +           # DistilBERT emotional intensity
-            activation_score * 0.15 +          # Model activation strength
-            viral_concept_score * 0.20 +       # CLIP similarity to viral concepts
-            punctuation_score * 0.10 +         # Emotional punctuation
-            caps_score * 0.10 +               # Strategic capitalization
-            action_score * 0.10 +             # Action/urgency words
-            optimal_brightness * 0.05 +        # Visual brightness appeal
-            contrast_score * 0.05 +           # Visual contrast
-            saturation_score * 0.05 +         # Color vibrancy
-            face_proxy_score * 0.05           # Human element (very basic)
+            activation_score * 0.10 +          # Model activation strength
+            viral_concept_score * 0.25 +       # CLIP similarity to dynamic viral concepts (increased weight)
+            trending_score * 0.15 +            # Trending topics presence (new dynamic feature)
+            action_score * 0.15 +              # Dynamic action words (increased weight)
+            punctuation_score * 0.08 +         # Emotional punctuation
+            caps_score * 0.07 +               # Strategic capitalization
+            optimal_brightness * 0.02 +        # Visual brightness appeal
+            contrast_score * 0.02 +           # Visual contrast
+            saturation_score * 0.02 +         # Color vibrancy
+            face_proxy_score * 0.01           # Human element (basic)
         )
         
         return float(min(max(vitality_score, 0.0), 1.0))  # Clamp between 0 and 1
@@ -480,39 +627,6 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
     except Exception as e:
         logger.error(f"Error calculating vitality score: {e}")
         return 0.5  # Default score
-
-def get_trending_topics(limit: int = 5) -> List[str]:
-    """Get trending topics using PyTrends"""
-    try:
-        pytrends = TrendReq(hl='en-US', tz=360)
-        trending_searches = pytrends.trending_searches(pn='united_states')
-        return trending_searches[0].head(limit).tolist()
-    except Exception as e:
-        logger.error(f"Error fetching trends: {e}")
-        # Return some default trending topics
-        return ["AI", "technology", "memes", "social media", "innovation"]
-
-async def generate_meme_with_gemini(topic: str, trends: List[str]) -> Dict[str, str]:
-    """Generate meme concept using Gemini API (mocked for now)"""
-    try:
-        # This is where we would use Gemini API
-        # For now, return a mocked response
-        mock_response = {
-            "image_url": f"https://imgflip.com/i/mock_meme_{hashlib.md5(topic.encode()).hexdigest()[:8]}",
-            "caption": f"When {topic} meets {trends[0]} - the ultimate combination! 😂",
-            "template_used": "Drake Pointing"
-        }
-        
-        logger.info(f"Generated meme concept for topic: {topic}")
-        return mock_response
-        
-    except Exception as e:
-        logger.error(f"Error generating meme with Gemini: {e}")
-        return {
-            "image_url": "https://imgflip.com/i/default_meme",
-            "caption": f"Something trending about {topic}!",
-            "template_used": "Generic"
-        }
 
 # ================================
 # API ENDPOINTS
@@ -525,6 +639,10 @@ async def startup_event():
     initialize_models()
     initialize_databases()
     initialize_gemini()
+    
+    # Initialize trends cache on startup
+    update_trends_cache()
+    
     logger.info("All services initialized successfully!")
 
 @app.get("/")
@@ -542,7 +660,7 @@ async def add_ad(
     - Accepts image/video files and optional text caption
     - Processes with CLIP model for semantic understanding
     - Stores in vector database (ChromaDB) and metadata in MongoDB
-    - Returns creativity and vitality scores
+    - Returns creativity and vitality scores using dynamic trending analysis
     """
     try:
         logger.info(f"Processing ad creative: {ad_creative.filename}")
@@ -579,7 +697,7 @@ async def add_ad(
         # Generate embeddings using CLIP
         embeddings = process_image_with_clip(image, text)
         
-        # Calculate scores
+        # Calculate scores with dynamic trending analysis
         creativity_score = calculate_creativity_score(image, text)
         vitality_score = calculate_vitality_score(image, text)
         
@@ -631,76 +749,13 @@ async def add_ad(
         logger.error(f"Error in add_ad endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.post("/generate-ad", response_model=GenerateAdResponse)
-async def generate_ad(request: GenerateAdRequest):
-    """
-    Endpoint 2: Generate advertisement using trending topics
-    - Uses PyTrends to get current trending topics
-    - Uses Gemini API to generate meme/ad concept
-    - Integrates with ImgFlip API to create actual meme (mocked for now)
-    - Stores generated ad in the system
-    """
-    try:
-        logger.info(f"Generating ad for topic: {request.topic}")
-        
-        # Get trending topics
-        trending_topics = get_trending_topics(limit=5)
-        logger.info(f"Current trending topics: {trending_topics}")
-        
-        # Determine topic to use
-        if request.topic:
-            main_topic = request.topic
-        else:
-            main_topic = trending_topics[0] if trending_topics else "viral content"
-        
-        # Generate meme concept using Gemini (mocked)
-        meme_data = await generate_meme_with_gemini(main_topic, trending_topics)
-        
-        # Generate ad ID for the generated content
-        content_string = f"{main_topic}_{meme_data['caption']}_{datetime.now().isoformat()}"
-        ad_id = f"generated_ad_{hashlib.md5(content_string.encode()).hexdigest()[:12]}"
-        
-        # Store generated ad metadata in MongoDB (if available)
-        if mongodb_db is not None:
-            generated_ad_document = {
-                "ad_id": ad_id,
-                "file_type": "generated_image",
-                "filename": f"generated_meme_{ad_id}.jpg",
-                "caption": meme_data['caption'],
-                "image_url": meme_data['image_url'],
-                "template_used": meme_data.get('template_used', 'Unknown'),
-                "main_topic": main_topic,
-                "trends_used": trending_topics,
-                "generated": True,
-                "created_at": datetime.now().isoformat()
-            }
-            
-            mongodb_db.generated_ads.insert_one(generated_ad_document)
-            logger.info(f"Generated ad metadata stored in MongoDB")
-        else:
-            logger.info("MongoDB not available - generated ad metadata not stored")
-        
-        logger.info(f"Successfully generated ad {ad_id}")
-        
-        return GenerateAdResponse(
-            ad_id=ad_id,
-            image_url=meme_data['image_url'],
-            caption=meme_data['caption'],
-            trends_used=trending_topics,
-            message="Ad generated successfully using current trends"
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in generate_ad endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
 @app.post("/get-relevant-ads", response_model=RelevantAdsResponse)
 async def get_relevant_ads(request: Request):
     """
-    Endpoint 3: Get relevant ads for publisher content
+    Endpoint 2: Get relevant ads for publisher content
     - Takes publisher content as input (supports both JSON and form data)
-    - Generates embeddings using sentence transformer
-    - Matches against stored ad embeddings in ChromaDB
+    - Generates embeddings using CLIP model (same as ad embeddings)
+    - Matches against stored ad embeddings in ChromaDB using dynamic similarity
     - Returns top-k most relevant ads with metadata
     
     Accepts either:
@@ -810,44 +865,113 @@ async def get_relevant_ads(request: Request):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # ================================
+# TRENDS AND ANALYTICS ENDPOINTS
+# ================================
+
+@app.get("/trends/current")
+async def get_current_trends():
+    """Get current trending topics and analysis data"""
+    try:
+        update_trends_cache()
+        
+        return {
+            "trending_topics": trends_cache.get("trending_topics", [])[:10],
+            "viral_concepts_count": len(trends_cache.get("viral_concepts", [])),
+            "action_words_count": len(trends_cache.get("action_words", [])),
+            "last_updated": trends_cache.get("last_updated").isoformat() if trends_cache.get("last_updated") else None,
+            "cache_duration_hours": trends_cache["cache_duration"].total_seconds() / 3600,
+            "sample_viral_concepts": trends_cache.get("viral_concepts", [])[:10],
+            "sample_action_words": trends_cache.get("action_words", [])[:10]
+        }
+    except Exception as e:
+        logger.error(f"Error getting current trends: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving trends")
+
+@app.post("/trends/refresh")
+async def refresh_trends():
+    """Force refresh the trends cache"""
+    try:
+        # Force update by resetting the last updated time
+        trends_cache["last_updated"] = None
+        update_trends_cache()
+        
+        return {
+            "message": "Trends cache refreshed successfully",
+            "trending_topics_count": len(trends_cache.get("trending_topics", [])),
+            "viral_concepts_count": len(trends_cache.get("viral_concepts", [])),
+            "action_words_count": len(trends_cache.get("action_words", [])),
+            "updated_at": trends_cache.get("last_updated").isoformat() if trends_cache.get("last_updated") else None
+        }
+    except Exception as e:
+        logger.error(f"Error refreshing trends: {e}")
+        raise HTTPException(status_code=500, detail="Error refreshing trends")
+
+# ================================
 # ADDITIONAL UTILITY ENDPOINTS
 # ================================
 
 @app.get("/ads/stats")
 async def get_ads_stats():
-    """Get statistics about stored ads"""
+    """Get statistics about stored ads with trending analysis"""
     try:
         if mongodb_db is not None:
             total_ads = mongodb_db.ads_metadata.count_documents({})
-            total_generated_ads = mongodb_db.generated_ads.count_documents({})
+            
+            # Get average scores
+            pipeline = [
+                {"$group": {
+                    "_id": None,
+                    "avg_creativity": {"$avg": "$creativity_score"},
+                    "avg_vitality": {"$avg": "$vitality_score"},
+                    "max_creativity": {"$max": "$creativity_score"},
+                    "max_vitality": {"$max": "$vitality_score"}
+                }}
+            ]
+            score_stats = list(mongodb_db.ads_metadata.aggregate(pipeline))
         else:
             total_ads = 0
-            total_generated_ads = 0
+            score_stats = []
         
         total_embeddings = chroma_collection.count()
         
-        return {
+        # Get trends info
+        trends_info = {
+            "trends_cache_active": trends_cache.get("last_updated") is not None,
+            "trending_topics_count": len(trends_cache.get("trending_topics", [])),
+            "viral_concepts_count": len(trends_cache.get("viral_concepts", [])),
+            "action_words_count": len(trends_cache.get("action_words", [])),
+            "last_trends_update": trends_cache.get("last_updated").isoformat() if trends_cache.get("last_updated") else None
+        }
+        
+        stats = {
             "total_uploaded_ads": total_ads,
-            "total_generated_ads": total_generated_ads,
             "total_embeddings": total_embeddings,
             "mongodb_status": "connected" if mongodb_db is not None else "disconnected",
-            "database_status": "healthy"
+            "database_status": "healthy",
+            "trends_info": trends_info
         }
+        
+        if score_stats:
+            stats["score_analytics"] = {
+                "average_creativity_score": round(score_stats[0]["avg_creativity"], 3),
+                "average_vitality_score": round(score_stats[0]["avg_vitality"], 3),
+                "max_creativity_score": round(score_stats[0]["max_creativity"], 3),
+                "max_vitality_score": round(score_stats[0]["max_vitality"], 3)
+            }
+        
+        return stats
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving statistics")
 
 @app.get("/ads/{ad_id}")
 async def get_ad_by_id(ad_id: str):
-    """Get specific ad by ID"""
+    """Get specific ad by ID with trending context"""
     try:
         ad_data = None
         
         if mongodb_db is not None:
             ad_data = mongodb_db.ads_metadata.find_one({"ad_id": ad_id})
-            if not ad_data:
-                # Check generated ads collection
-                ad_data = mongodb_db.generated_ads.find_one({"ad_id": ad_id})
         
         if not ad_data:
             # Try to get from ChromaDB metadata
@@ -873,6 +997,11 @@ async def get_ad_by_id(ad_id: str):
         # Remove MongoDB ObjectId if present
         if '_id' in ad_data:
             ad_data.pop('_id', None)
+            
+        # Add current trending context
+        current_trends = trends_cache.get("trending_topics", [])[:5]
+        ad_data["current_trending_context"] = current_trends
+        
         return ad_data
         
     except HTTPException:
@@ -889,9 +1018,8 @@ async def delete_ad(ad_id: str):
         
         # Delete from MongoDB if available
         if mongodb_db is not None:
-            result1 = mongodb_db.ads_metadata.delete_one({"ad_id": ad_id})
-            result2 = mongodb_db.generated_ads.delete_one({"ad_id": ad_id})
-            deleted_count = result1.deleted_count + result2.deleted_count
+            result = mongodb_db.ads_metadata.delete_one({"ad_id": ad_id})
+            deleted_count = result.deleted_count
         
         # Delete from ChromaDB
         try:
@@ -910,6 +1038,54 @@ async def delete_ad(ad_id: str):
     except Exception as e:
         logger.error(f"Error deleting ad {ad_id}: {e}")
         raise HTTPException(status_code=500, detail="Error deleting ad")
+
+@app.get("/health")
+async def health_check():
+    """Comprehensive health check including trends system"""
+    try:
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "services": {
+                "mongodb": "connected" if mongodb_db is not None else "disconnected",
+                "chromadb": "connected",
+                "clip_model": "loaded" if clip_model is not None else "not_loaded",
+                "distilbert_model": "loaded" if distilbert_model is not None else "not_loaded",
+                "sentence_transformer": "loaded" if sentence_transformer is not None else "not_loaded",
+                "trends_system": "active" if trends_cache.get("last_updated") is not None else "inactive"
+            },
+            "trends_cache_info": {
+                "last_updated": trends_cache.get("last_updated").isoformat() if trends_cache.get("last_updated") else None,
+                "trending_topics_available": len(trends_cache.get("trending_topics", [])),
+                "viral_concepts_available": len(trends_cache.get("viral_concepts", [])),
+                "action_words_available": len(trends_cache.get("action_words", []))
+            }
+        }
+        
+        # Test ChromaDB connection
+        try:
+            chroma_collection.count()
+        except Exception as e:
+            health_status["services"]["chromadb"] = f"error: {str(e)}"
+            health_status["status"] = "degraded"
+        
+        # Test MongoDB connection if available
+        if mongodb_db is not None:
+            try:
+                mongodb_client.admin.command('ping')
+            except Exception as e:
+                health_status["services"]["mongodb"] = f"error: {str(e)}"
+                health_status["status"] = "degraded"
+        
+        return health_status
+        
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
 
 # ================================
 # RUN THE APPLICATION
@@ -962,4 +1138,34 @@ python-dotenv==1.0.0
 # Optional: for better performance
 # accelerate==0.24.1
 # optimum==1.14.1
+"""
+
+# ================================
+# USAGE EXAMPLES
+# ================================
+
+"""
+API Usage Examples:
+
+1. Add an ad:
+curl -X POST "http://localhost:8000/add-ad" \
+  -F "ad_creative=@your_image.jpg" \
+  -F "text=Your amazing ad caption here!"
+
+2. Get relevant ads:
+curl -X POST "http://localhost:8000/get-relevant-ads" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "technology news article", "top_k": 5}'
+
+3. Get current trends:
+curl -X GET "http://localhost:8000/trends/current"
+
+4. Refresh trends cache:
+curl -X POST "http://localhost:8000/trends/refresh"
+
+5. Get ads statistics:
+curl -X GET "http://localhost:8000/ads/stats"
+
+6. Health check:
+curl -X GET "http://localhost:8000/health"
 """
