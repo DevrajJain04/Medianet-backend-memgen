@@ -43,6 +43,9 @@ import requests
 import logging
 from functools import lru_cache
 import re
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+from content_analyser import DistilBertContentAnalyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +72,7 @@ app.add_middleware(
 # ================================
 
 # Environment variables (set these in your environment)
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://divyam:divyam@cluster0.yzzipo3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "prachaar_ai")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your-gemini-api-key-here")
 CHROMADB_PATH = os.getenv("CHROMADB_PATH", "./chromadb_data")
@@ -106,8 +109,14 @@ class AdCreativeResponse(BaseModel):
 
 class RelevantAdsRequest(BaseModel):
     """Request model for get-relevant-ads endpoint"""
-    content: str
+    content: Optional[str] = None
+    url: Optional[str] = None
     top_k: Optional[int] = 10
+
+    @property
+    def is_valid(self):
+        """Check if either content or url is provided"""
+        return bool(self.content or self.url)
 
 class AdMetadata(BaseModel):
     """Model for ad metadata"""
@@ -358,7 +367,7 @@ def initialize_gemini():
     except Exception as e:
         logger.error(f"Failed to configure Gemini API: {e}")
         # Don't raise here as it might be configured later
-
+    
 # ================================
 # UTILITY FUNCTIONS
 # ================================
@@ -629,6 +638,184 @@ def calculate_vitality_score(image: Image.Image, text: str) -> float:
         return 0.5  # Default score
 
 # ================================
+# CONTENT ANALYZER FUNCTIONS
+# ================================
+
+def create_content_analyzer():
+    """Create and initialize the content analyzer with enhanced capabilities"""
+    return DistilBertContentAnalyzer()
+
+async def analyze_content_for_ads(content=None, url=None, top_k=10):
+    """Analyze content and find relevant ads using enhanced matching"""
+    try:
+        analyzer = create_content_analyzer()
+        
+        # Extract content from URL if provided, with retries
+        if url:
+            try:
+                content_data = await extract_url_with_retry(url)
+                if not content_data.get('success', False):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to extract content from URL: {content_data.get('error', 'unknown error')}"
+                    )
+                content = content_data['text']
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"URL extraction failed: {str(e)}"
+                )
+        elif not content:
+            raise HTTPException(status_code=400, detail="No content provided")
+        
+        # Create content data for analysis
+        content_data = analyzer._process_direct_text(content)
+            
+        # Get analysis with embeddings
+        analysis = analyzer.analyze_content_with_distilbert(content_data)
+        
+        if not analysis.get('success', False):
+            raise HTTPException(status_code=400, detail="Content analysis failed")
+        
+        # Pad or truncate embeddings to match expected dimension
+        embeddings = pad_embeddings(analysis['semantic_embeddings'], target_dim=512)
+        
+        # Query ChromaDB for similar ads
+        results = chroma_collection.query(
+            query_embeddings=[embeddings],
+            n_results=top_k * 2,
+            include=["metadatas", "distances"]
+        )
+        
+        # Enhanced ad matching using semantic embeddings and cookieless features
+        relevant_ads = []
+        
+        # Query ChromaDB for initial matches
+        results = chroma_collection.query(
+            query_embeddings=[embeddings],
+            n_results=top_k * 2,  # Get more initially for filtering
+            include=["metadatas", "distances"]
+        )
+        
+        if results['ids'] and len(results['ids'][0]) > 0:
+            # Enhanced scoring using cookieless features
+            for i, ad_id in enumerate(results['ids'][0]):
+                base_similarity = 1 - results['distances'][0][i]
+                
+                # Get ad metadata
+                if mongodb_db is not None:
+                    ad_data = mongodb_db.ads_metadata.find_one({"ad_id": ad_id})
+                else:
+                    ad_data = results['metadatas'][0][i]
+                
+                if ad_data:
+                    # Calculate feature-based score boost
+                    boost_score = calculate_feature_boost(
+                        analysis['cookieless_features'],
+                        ad_data.get('category', ''),
+                        analysis['category'],
+                        ad_data.get('sentiment', {}).get('label', ''),
+                        analysis['sentiment']['label']
+                    )
+                    
+                    # Combine scores with weights
+                    final_score = (base_similarity * 0.7) + (boost_score * 0.3)
+                    
+                    relevant_ads.append({
+                        'ad_data': ad_data,
+                        'relevance_score': final_score
+                    })
+        
+        # Sort by final score and get top_k
+        relevant_ads.sort(key=lambda x: x['relevance_score'], reverse=True)
+        relevant_ads = relevant_ads[:top_k]
+        
+        # Format response
+        formatted_ads = []
+        for item in relevant_ads:
+            ad_data = item['ad_data']
+            formatted_ad = AdMetadata(
+                ad_id=ad_data['ad_id'],
+                file_type=ad_data.get('file_type', 'unknown'),
+                caption=ad_data.get('caption', ''),
+                creativity_score=ad_data.get('creativity_score', 0.5),
+                vitality_score=ad_data.get('vitality_score', 0.5),
+                created_at=ad_data.get('created_at', datetime.now().isoformat()),
+                file_data=ad_data.get('file_data', '')
+            )
+            formatted_ads.append(formatted_ad)
+        
+        return RelevantAdsResponse(
+            ads=formatted_ads,
+            total_found=len(formatted_ads),
+            similarity_threshold=0.1
+        )
+        
+    except Exception as e:
+        logger.error(f"Content analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_feature_boost(content_features, ad_category, content_category, ad_sentiment, content_sentiment):
+    """Calculate boost score based on content and ad features"""
+    boost = 0.0
+    
+    # Category match boost
+    if ad_category.lower() == content_category.lower():
+        boost += 0.2
+        
+    # Sentiment alignment boost
+    if ad_sentiment == content_sentiment:
+        boost += 0.1
+        
+    # Content freshness boost
+    if content_features.get('has_dates', False):
+        boost += 0.05
+        
+    # Reading time alignment
+    content_read_time = content_features.get('reading_time_minutes', 5)
+    if content_read_time > 1 and content_read_time < 10:
+        boost += 0.05
+        
+    # Engagement potential boost
+    if content_features.get('exclamation_ratio', 0) > 0.01:
+        boost += 0.05
+        
+    return min(boost, 0.5)  # Cap the boost at 0.5
+
+def pad_embeddings(embeddings, target_dim=512):
+    """Pad or truncate embeddings to match target dimension"""
+    current_dim = len(embeddings)
+    if current_dim == target_dim:
+        return embeddings
+    
+    if current_dim > target_dim:
+        # Truncate to target dimension
+        return embeddings[:target_dim]
+    else:
+        # Pad with zeros
+        padding = np.zeros(target_dim - current_dim)
+        return np.concatenate([embeddings, padding])
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    reraise=True
+)
+async def extract_url_with_retry(url: str):
+    """Extract content from URL with retry logic"""
+    try:
+        analyzer = create_content_analyzer()
+        content_data = analyzer.extract_content(url)
+        
+        if not content_data.get('success', False):
+            raise Exception(content_data.get('error', 'Failed to extract content'))
+            
+        return content_data
+    except Exception as e:
+        logger.warning(f"URL extraction attempt failed: {str(e)}")
+        raise
+
+# ================================
 # API ENDPOINTS
 # ================================
 
@@ -751,118 +938,40 @@ async def add_ad(
 
 @app.post("/get-relevant-ads", response_model=RelevantAdsResponse)
 async def get_relevant_ads(request: Request):
-    """
-    Endpoint 2: Get relevant ads for publisher content
-    - Takes publisher content as input (supports both JSON and form data)
-    - Generates embeddings using CLIP model (same as ad embeddings)
-    - Matches against stored ad embeddings in ChromaDB using dynamic similarity
-    - Returns top-k most relevant ads with metadata
-    
-    Accepts either:
-    1. JSON body: {"content": "text", "top_k": 10}
-    2. Form data: content=text&top_k=10
-    """
+    """Enhanced endpoint for getting relevant ads using content analysis"""
     try:
         content_type = request.headers.get("content-type", "").lower()
         
         if "application/json" in content_type:
             # Handle JSON request
-            try:
-                body = await request.json()
-                publisher_content = body.get("content")
-                k_value = body.get("top_k", 10)
-                
-                if not publisher_content:
-                    raise HTTPException(status_code=400, detail="Missing 'content' field in JSON body")
-                    
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid JSON body: {str(e)}")
-                
-        elif "application/x-www-form-urlencoded" in content_type:
-            # Handle form data request
-            try:
-                form_data = await request.form()
-                publisher_content = form_data.get("content")
-                k_value = int(form_data.get("top_k", 10))
-                
-                if not publisher_content:
-                    raise HTTPException(status_code=400, detail="Missing 'content' field in form data")
-                    
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid top_k value, must be integer")
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
+            body = await request.json()
+            request_data = RelevantAdsRequest(**body)
         else:
-            raise HTTPException(
-                status_code=400, 
-                detail="Content-Type must be either 'application/json' or 'application/x-www-form-urlencoded'"
+            # Handle form data request
+            form_data = await request.form()
+            request_data = RelevantAdsRequest(
+                content=form_data.get("content"),
+                url=form_data.get("url"),
+                top_k=int(form_data.get("top_k", 10))
             )
-        
-        logger.info(f"Finding relevant ads for content: {publisher_content[:100]}... (top_k={k_value})")
-        
-        # Generate embedding for the publisher content using CLIP (same as ad embeddings)
-        # For text-only content, we'll use CLIP's text encoder
-        inputs = clip_processor(text=[publisher_content], images=None, return_tensors="pt", padding=True)
-        
-        with torch.no_grad():
-            # Get text embeddings from CLIP
-            text_features = clip_model.get_text_features(inputs['input_ids'])
-            # Normalize the embeddings
-            text_features = text_features / text_features.norm(dim=1, keepdim=True)
-            content_embedding = text_features.numpy().flatten().tolist()
-        
-        # Query ChromaDB for similar ads
-        similarity_threshold = 0.1  # 10% threshold as requested
-        
-        results = chroma_collection.query(
-            query_embeddings=[content_embedding],
-            n_results=k_value,
-            include=["metadatas", "distances"]
+            
+        if not request_data.is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail="Either content or URL must be provided"
+            )
+            
+        return await analyze_content_for_ads(
+            content=request_data.content,
+            url=request_data.url,
+            top_k=request_data.top_k
         )
         
-        relevant_ads = []
-        
-        if results['ids'] and len(results['ids'][0]) > 0:
-            # Get detailed metadata from MongoDB for each relevant ad (if MongoDB is available)
-            for i, ad_id in enumerate(results['ids'][0]):
-                # Check similarity threshold (distance < threshold means more similar)
-                similarity_distance = results['distances'][0][i]
-                similarity_score = 1 - similarity_distance  # Convert distance to similarity
-                
-                if similarity_score >= similarity_threshold:
-                    if mongodb_db is not None:
-                        # Get full metadata from MongoDB
-                        ad_metadata = mongodb_db.ads_metadata.find_one({"ad_id": ad_id})
-                        
-                        if ad_metadata:
-                            # Remove MongoDB ObjectId for serialization
-                            ad_metadata.pop('_id', None)
-                            relevant_ads.append(AdMetadata(**ad_metadata))
-                    else:
-                        # Use metadata from ChromaDB only
-                        chroma_metadata = results['metadatas'][0][i]
-                        mock_ad_metadata = {
-                            "ad_id": ad_id,
-                            "file_type": chroma_metadata.get('file_type', 'unknown'),
-                            "caption": chroma_metadata.get('caption', ''),
-                            "creativity_score": chroma_metadata.get('creativity_score', 0.5),
-                            "vitality_score": chroma_metadata.get('vitality_score', 0.5),
-                            "created_at": chroma_metadata.get('created_at', datetime.now().isoformat()),
-                            "file_data": ""  # No file data available without MongoDB
-                        }
-                        relevant_ads.append(AdMetadata(**mock_ad_metadata))
-        
-        logger.info(f"Found {len(relevant_ads)} relevant ads above threshold")
-        
-        return RelevantAdsResponse(
-            ads=relevant_ads,
-            total_found=len(relevant_ads),
-            similarity_threshold=similarity_threshold
-        )
-        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error in get_relevant_ads endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error in get_relevant_ads: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ================================
 # TRENDS AND ANALYTICS ENDPOINTS
@@ -1056,9 +1165,9 @@ async def health_check():
             },
             "trends_cache_info": {
                 "last_updated": trends_cache.get("last_updated").isoformat() if trends_cache.get("last_updated") else None,
-                "trending_topics_available": len(trends_cache.get("trending_topics", [])),
-                "viral_concepts_available": len(trends_cache.get("viral_concepts", [])),
-                "action_words_available": len(trends_cache.get("action_words", []))
+                "trending_topics_count": len(trends_cache.get("trending_topics", [])),
+                "viral_concepts_count": len(trends_cache.get("viral_concepts", [])),
+                "action_words_count": len(trends_cache.get("action_words", []))
             }
         }
         
@@ -1093,7 +1202,7 @@ async def health_check():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",  # Assuming this file is named main.py
+        "prachaar_ai_backend:app",  # Updated to match your filename
         host="0.0.0.0",
         port=8000,
         reload=True,
