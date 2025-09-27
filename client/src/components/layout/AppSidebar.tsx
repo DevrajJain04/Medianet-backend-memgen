@@ -34,8 +34,8 @@ import { Button } from "@/components/ui/button";
 
 const mainNavItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard, roles: ['admin'] },
-  { title: "Publisher", url: "/publisher", icon: Users, roles: ['publisher', 'admin'] },
-  { title: "Advertiser", url: "/advertiser", icon: Megaphone, roles: ['advertiser', 'admin'] },
+  { title: "DashBoard", url: "/publisher", icon: Users, roles: ['publisher', 'admin'] },
+  { title: "DashBoard", url: "/advertiser", icon: Megaphone, roles: ['advertiser', 'admin'] },
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ['publisher', 'advertiser', 'admin'] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ['publisher', 'advertiser', 'admin'] },
 ];

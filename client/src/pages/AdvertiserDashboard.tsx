@@ -1,269 +1,185 @@
-import { MetricCard } from "@/components/ui/metric-card";
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { MediaUpload } from "@/components/MediaUpload";
+import { ScoreDisplay } from "@/components/ScoreDisplay";
+import { analyzeContent, type UploadedFile, type ScoreData } from "@/lib/contentAnalysis";
 import {
-  Megaphone,
-  Target,
-  Users,
-  DollarSign,
+  Sparkles,
+  Upload,
   TrendingUp,
-  Play,
-  Pause,
   BarChart3,
   Zap,
-  Clock,
+  Target,
+  Award
 } from "lucide-react";
 
 export default function AdvertiserDashboard() {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [scores, setScores] = useState<ScoreData | null>(null);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+
+  const handleAnalyze = async (files: UploadedFile[]) => {
+    if (files.length === 0) return;
+    
+    setIsAnalyzing(true);
+    try {
+      const analysisResults = await analyzeContent(files);
+      setScores(analysisResults);
+      setHasAnalyzed(true);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      // Handle error - could show toast notification
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleNewAnalysis = () => {
+    setScores(null);
+    setHasAnalyzed(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Advertiser Hub</h1>
+          <h1 className="text-3xl font-bold text-foreground">Content Analysis Hub</h1>
           <p className="text-muted-foreground mt-1">
-            Reach your target audience with precision campaigns
+            Upload your media content to get AI-powered virality and creativity scores
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-advertiser/10 text-advertiser border-advertiser/20">
-            8 Campaigns Active
-          </Badge>
-          <Button className="bg-gradient-advertiser hover:opacity-90">
-            <Zap className="w-4 h-4 mr-2" />
-            Launch Campaign
+          {hasAnalyzed && (
+            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+              <Award className="w-3 h-3 mr-1" />
+              Analysis Complete
+            </Badge>
+          )}
+          <Button 
+            onClick={handleNewAnalysis}
+            variant="outline"
+            disabled={isAnalyzing}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            New Analysis
           </Button>
         </div>
       </div>
 
-      {/* Advertiser Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Campaign Reach"
-          value="1.8M"
-          description="Unique impressions"
-          trend={{ value: 22, label: "vs last month", positive: true }}
-          icon={<Megaphone className="w-4 h-4 text-advertiser" />}
-          variant="advertiser"
-        />
-        <MetricCard
-          title="Conversion Rate"
-          value="4.7%"
-          description="Above benchmark"
-          trend={{ value: 15, label: "improvement", positive: true }}
-          icon={<Target className="w-4 h-4 text-advertiser" />}
-          variant="advertiser"
-        />
-        <MetricCard
-          title="Campaign Spend"
-          value="$34,250"
-          description="This month"
-          trend={{ value: 8, label: "under budget", positive: true }}
-          icon={<DollarSign className="w-4 h-4 text-advertiser" />}
-          variant="advertiser"
-        />
-        <MetricCard
-          title="Quality Score"
-          value="8.9/10"
-          description="Premium placement"
-          progress={{ value: 89, max: 100, label: "Quality Score" }}
-          icon={<BarChart3 className="w-4 h-4 text-advertiser" />}
-          variant="advertiser"
-        />
-      </div>
-
-      {/* Advertiser Dashboard Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Campaigns */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Megaphone className="w-5 h-5" />
-              Active Campaigns
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              {
-                name: "Enterprise Software Q4",
-                status: "active",
-                budget: "$12,500",
-                spent: "$8,420", 
-                impressions: "542K",
-                conversions: "1,247",
-                ctr: "4.2%",
-                progress: 67,
-              },
-              {
-                name: "Mobile App Launch",
-                status: "active", 
-                budget: "$8,000",
-                spent: "$6,120",
-                impressions: "398K",
-                conversions: "892",
-                ctr: "3.8%",
-                progress: 76,
-              },
-              {
-                name: "B2B Services Campaign",
-                status: "paused",
-                budget: "$15,000", 
-                spent: "$4,200",
-                impressions: "189K",
-                conversions: "456",
-                ctr: "3.1%",
-                progress: 28,
-              },
-              {
-                name: "Holiday Promotion",
-                status: "active",
-                budget: "$20,000",
-                spent: "$12,800",
-                impressions: "723K", 
-                conversions: "2,134",
-                ctr: "5.1%",
-                progress: 64,
-              },
-            ].map((campaign, i) => (
-              <div key={i} className="p-4 bg-advertiser/5 border border-advertiser/10 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <h4 className="font-medium text-card-foreground">{campaign.name}</h4>
-                    <Badge
-                      variant="outline"
-                      className={
-                        campaign.status === "active"
-                          ? "bg-advertiser/10 text-advertiser border-advertiser/20"
-                          : "bg-muted text-muted-foreground"
-                      }
-                    >
-                      {campaign.status}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                      {campaign.status === "active" ? (
-                        <Pause className="w-3 h-3" />
-                      ) : (
-                        <Play className="w-3 h-3" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm mb-3">
-                  <div>
-                    <span className="text-muted-foreground">Spend:</span>
-                    <div className="font-medium">{campaign.spent} / {campaign.budget}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Impressions:</span>
-                    <div className="font-medium">{campaign.impressions}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Conversions:</span>
-                    <div className="font-medium text-advertiser">{campaign.conversions}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">CTR:</span>
-                    <div className="font-medium">{campaign.ctr}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Progress:</span>
-                    <div className="font-medium">{campaign.progress}%</div>
-                  </div>
-                </div>
-                
-                <Progress value={campaign.progress} className="h-2" />
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Analyses</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
-            ))}
+              <BarChart3 className="h-8 w-8 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg. Virality Score</p>
+                <p className="text-2xl font-bold">-</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg. Creativity Score</p>
+                <p className="text-2xl font-bold">-</p>
+              </div>
+              <Sparkles className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Campaign Tools & Insights */}
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upload Section */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Campaign Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center p-4 bg-advertiser/10 rounded-lg">
-                <div className="text-2xl font-bold text-advertiser">4.7%</div>
-                <p className="text-sm text-muted-foreground">Average CTR</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <div className="text-muted-foreground">Best Performer</div>
-                  <div className="font-medium">Holiday Promotion</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Top Channel</div>
-                  <div className="font-medium text-advertiser">Mobile Display</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Avg. CPC</div>
-                  <div className="font-medium">$2.34</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">ROAS</div>
-                  <div className="font-medium text-advertiser">3.2x</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <MediaUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+        </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Campaign Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <Megaphone className="w-4 h-4 mr-2" />
-                Create New Campaign
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Target className="w-4 h-4 mr-2" />
-                Audience Insights
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Performance Report
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-advertiser/10 to-transparent border-advertiser/20">
-            <CardHeader>
-              <CardTitle className="text-advertiser">Optimization Tips</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-3 bg-background/50 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-3 h-3 text-advertiser" />
-                  <span className="text-sm font-medium">Prime Time</span>
+        {/* Results Section */}
+        <div className="space-y-6">
+          {scores ? (
+            <ScoreDisplay scores={scores} isLoading={isAnalyzing} />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Analysis Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <Sparkles className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Analysis Yet</h3>
+                  <p className="text-muted-foreground">
+                    Upload your media files and click "Generate Scores" to see AI-powered analysis results.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Your audience is most active between 2-4 PM
-                </p>
-              </div>
-              <div className="p-3 bg-background/50 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Target className="w-3 h-3 text-advertiser" />
-                  <span className="text-sm font-medium">Targeting Tip</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Consider expanding to similar demographics
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* Features Overview */}
+      <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-700">
+            <Zap className="w-5 h-5" />
+            AI-Powered Content Analysis Features
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <TrendingUp className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="font-semibold text-blue-700 mb-1">Virality Score</h3>
+              <p className="text-sm text-blue-600">Analyzes potential for viral reach and engagement</p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="font-semibold text-purple-700 mb-1">Creativity Score</h3>
+              <p className="text-sm text-purple-600">Evaluates originality and creative appeal</p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <Target className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="font-semibold text-green-700 mb-1">Smart Recommendations</h3>
+              <p className="text-sm text-green-600">AI-generated suggestions for improvement</p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <BarChart3 className="w-6 h-6 text-orange-600" />
+              </div>
+              <h3 className="font-semibold text-orange-700 mb-1">Detailed Analysis</h3>
+              <p className="text-sm text-orange-600">Comprehensive breakdown of strengths and areas for improvement</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

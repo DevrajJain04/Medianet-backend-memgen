@@ -49,8 +49,36 @@ export default function PublisherDashboard() {
   const [websiteData, setWebsiteData] = useState<{
     title?: string;
     description?: string;
-    images?: string[];
+    images?: Array<{
+      src: string;
+      alt: string;
+      width: number;
+      height: number;
+      x: number;
+      y: number;
+      index: number;
+    }>;
     content?: string;
+    html?: string;
+    styles?: Array<{type: string; content?: string; href?: string}>;
+    metadata?: {
+      title?: string;
+      description?: string;
+      viewport?: string;
+      canonical?: string;
+    };
+    contentAreas?: Array<{
+      selector: string;
+      index: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      tagName: string;
+      className: string;
+      id: string;
+    }>;
+    screenshot?: string;
   } | null>(null);
   const { token } = useUser();
   const { toast } = useToast();
@@ -194,7 +222,20 @@ export default function PublisherDashboard() {
       }) as { success: boolean; title?: string; description?: string; images?: string[]; content?: string; error?: string };
       
       if (response.success) {
-        setWebsiteData(response);
+        setWebsiteData({
+          title: response.title,
+          description: response.description,
+          content: response.content,
+          images: response.images?.map((img: string, index: number) => ({
+            src: img,
+            alt: `Website image ${index + 1}`,
+            width: 0,
+            height: 0,
+            x: 0,
+            y: 0,
+            index
+          }))
+        });
         setCanEmbed(false); // We're using screenshot mode
         setPreviewMode('iframe'); // We'll render it in iframe as HTML
         toast({
@@ -209,6 +250,84 @@ export default function PublisherDashboard() {
       toast({
         title: 'Failed to load website',
         description: error instanceof Error ? error.message : 'Could not load the website',
+        variant: 'destructive'
+      });
+      setCanEmbed(false);
+    } finally {
+      setIsLoadingCheck(false);
+    }
+  };
+
+  const loadWebsitePreview = async (url: string) => {
+    setIsLoadingCheck(true);
+    try {
+      const response = await api('/api/proxy/preview', {
+        method: 'POST',
+        token,
+        body: { url }
+      }) as { 
+        success: boolean; 
+        html?: string; 
+        styles?: Array<{type: string; content?: string; href?: string}>; 
+        metadata?: {
+          title?: string;
+          description?: string;
+          viewport?: string;
+          canonical?: string;
+        }; 
+        images?: Array<{
+          src: string;
+          alt: string;
+          width: number;
+          height: number;
+          x: number;
+          y: number;
+          index: number;
+        }>; 
+        contentAreas?: Array<{
+          selector: string;
+          index: number;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          tagName: string;
+          className: string;
+          id: string;
+        }>; 
+        screenshot?: string; 
+        fallback?: boolean;
+        error?: string 
+      };
+      
+      if (response.success) {
+        setWebsiteData({
+          title: response.metadata?.title,
+          description: response.metadata?.description,
+          html: response.html,
+          styles: response.styles,
+          metadata: response.metadata,
+          images: response.images,
+          contentAreas: response.contentAreas,
+          screenshot: response.screenshot
+        });
+        setCanEmbed(false); // We're using headless browser mode
+        setPreviewMode('iframe');
+        toast({
+          title: response.fallback ? 'Website loaded with fallback method' : 'Website loaded with full HTML/CSS',
+          description: response.fallback 
+            ? 'Headless browser failed, but website content was loaded using fallback method. Carousel placement may be limited.'
+            : 'Full website content loaded with headless browser. You can now place carousels.',
+          variant: response.fallback ? 'default' : 'default'
+        });
+      } else {
+        throw new Error(response.error || 'Failed to fetch website preview');
+      }
+    } catch (error) {
+      console.error('Preview fetch error:', error);
+      toast({
+        title: 'Failed to load website preview',
+        description: error instanceof Error ? error.message : 'Could not load the website preview',
         variant: 'destructive'
       });
       setCanEmbed(false);
@@ -298,26 +417,49 @@ export default function PublisherDashboard() {
                           Website Preview
                           </div>
                           {previewUrl && canEmbed === null && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => loadWebsite(previewUrl)}
-                                disabled={isLoadingCheck}
-                                className="bg-gradient-publisher hover:opacity-90"
-                              >
-                                {isLoadingCheck ? 'Loading...' : 'Load Real Website'}
-                              </Button>
+                            <div className="flex flex-col gap-2">
+                              <div className="text-xs text-muted-foreground mb-2">
+                                Choose how to load the website:
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => loadWebsite(previewUrl)}
+                                  disabled={isLoadingCheck}
+                                  variant="outline"
+                                >
+                                  {isLoadingCheck ? 'Loading...' : 'Try Iframe (May Block)'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => loadWebsitePreview(previewUrl)}
+                                  disabled={isLoadingCheck}
+                                  className="bg-gradient-publisher hover:opacity-90"
+                                >
+                                  {isLoadingCheck ? 'Loading...' : 'Load with Headless Browser (Recommended)'}
+                                </Button>
+                              </div>
                             </div>
                           )}
                           {previewUrl && canEmbed === false && !websiteData && (
-                            <Button
-                              size="sm"
-                              onClick={() => loadWebsiteScreenshot(previewUrl)}
-                              disabled={isLoadingCheck}
-                              variant="outline"
-                            >
-                              {isLoadingCheck ? 'Loading...' : 'Try Screenshot Mode'}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => loadWebsiteScreenshot(previewUrl)}
+                                disabled={isLoadingCheck}
+                                variant="outline"
+                              >
+                                {isLoadingCheck ? 'Loading...' : 'Try Screenshot Mode'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => loadWebsitePreview(previewUrl)}
+                                disabled={isLoadingCheck}
+                                className="bg-gradient-publisher hover:opacity-90"
+                              >
+                                {isLoadingCheck ? 'Loading...' : 'Load with Headless Browser'}
+                              </Button>
+                            </div>
                           )}
                         </DialogTitle>
                       </DialogHeader>
@@ -340,11 +482,11 @@ export default function PublisherDashboard() {
                                       <div className="mt-6">
                                         <h3 className="text-lg font-semibold mb-3">Website Images</h3>
                                         <div className="grid grid-cols-2 gap-4">
-                                          {websiteData.images.slice(0, 6).map((img: string, index: number) => (
+                                          {websiteData.images.slice(0, 6).map((img, index: number) => (
                                             <img 
                                               key={index} 
-                                              src={img} 
-                                              alt={`Website image ${index + 1}`}
+                                              src={img.src} 
+                                              alt={img.alt}
                                               className="w-full h-32 object-cover rounded"
                                               onError={(e) => {
                                                 (e.target as HTMLImageElement).style.display = 'none';
@@ -481,10 +623,10 @@ export default function PublisherDashboard() {
                               <div>
                                 <p className="font-medium mb-1">How to use:</p>
                                 <ul className="space-y-1 text-blue-600">
-                                  <li>• Click "Load Real Website" to try iframe embedding</li>
-                                  <li>• If blocked, click "Try Screenshot Mode" for a preview version</li>
+                                  <li>• Click "Load with Headless Browser (Recommended)" to bypass iframe blocking</li>
+                                  <li>• This loads full HTML/CSS and works with any website</li>
                                   <li>• Drag suggestions from the sidebar onto the website preview</li>
-                                  <li>• Screenshot mode shows website content without iframe restrictions</li>
+                                  <li>• Carousels will be placed exactly where you drop them</li>
                                 </ul>
                               </div>
                             </div>

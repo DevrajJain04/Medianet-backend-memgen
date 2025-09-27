@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
+import { AIChatbot } from "../AIChatbot";
 
 export function DashboardLayout() {
   return (
@@ -15,6 +16,7 @@ export function DashboardLayout() {
           </main>
         </div>
       </div>
+      <AIChatbot />
     </SidebarProvider>
   );
 }
