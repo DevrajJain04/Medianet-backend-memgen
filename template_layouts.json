@@ -1,0 +1,1280 @@
+{
+    "181913649": {
+        "name": "Drake Hotline Bling",
+        "text_zones": [
+            {
+                "zone_name": "reject_option",
+                "x_percent": 0.5,
+                "y_percent": 0.15,
+                "width_percent": 0.45,
+                "height_percent": 0.35,
+                "alignment": "left",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Thing Drake disapproves of"
+            },
+            {
+                "zone_name": "approve_option",
+                "x_percent": 0.5,
+                "y_percent": 0.6,
+                "width_percent": 0.45,
+                "height_percent": 0.35,
+                "alignment": "left",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Thing Drake approves of"
+            }
+        ],
+        "layout_type": "drake_choice",
+        "optimal_text_count": 2
+    },
+    "87743020": {
+        "name": "Two Buttons",
+        "text_zones": [
+            {
+                "zone_name": "dilemma",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "The difficult choice scenario"
+            },
+            {
+                "zone_name": "left_button",
+                "x_percent": 0.2,
+                "y_percent": 0.45,
+                "width_percent": 0.25,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Left choice"
+            },
+            {
+                "zone_name": "right_button",
+                "x_percent": 0.65,
+                "y_percent": 0.45,
+                "width_percent": 0.25,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Right choice"
+            }
+        ],
+        "layout_type": "difficult_choice",
+        "optimal_text_count": 3
+    },
+    "112126428": {
+        "name": "Distracted Boyfriend",
+        "text_zones": [
+            {
+                "zone_name": "boyfriend_label",
+                "x_percent": 0.42,
+                "y_percent": 0.85,
+                "width_percent": 0.15,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Label for boyfriend (center character)"
+            },
+            {
+                "zone_name": "girlfriend_label",
+                "x_percent": 0.15,
+                "y_percent": 0.85,
+                "width_percent": 0.2,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Label for girlfriend (left character)"
+            },
+            {
+                "zone_name": "other_woman_label",
+                "x_percent": 0.7,
+                "y_percent": 0.85,
+                "width_percent": 0.2,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Label for attractive alternative (right character)"
+            }
+        ],
+        "layout_type": "three_character_labels",
+        "optimal_text_count": 3
+    },
+    "222403160": {
+        "name": "Bernie I Am Once Again Asking For Your Support",
+        "text_zones": [
+            {
+                "zone_name": "request_text",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.8,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "What Bernie is asking for"
+            }
+        ],
+        "layout_type": "single_request",
+        "optimal_text_count": 1
+    },
+    "124822590": {
+        "name": "Left Exit 12 Off Ramp",
+        "text_zones": [
+            {
+                "zone_name": "car_label",
+                "x_percent": 0.1,
+                "y_percent": 0.4,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What the car represents (you/person)"
+            },
+            {
+                "zone_name": "straight_path",
+                "x_percent": 0.6,
+                "y_percent": 0.2,
+                "width_percent": 0.35,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "The boring/responsible choice"
+            },
+            {
+                "zone_name": "exit_path",
+                "x_percent": 0.25,
+                "y_percent": 0.1,
+                "width_percent": 0.3,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "The tempting alternative"
+            }
+        ],
+        "layout_type": "choice_diversion",
+        "optimal_text_count": 3
+    },
+    "131087935": {
+        "name": "Running Away Balloon",
+        "text_zones": [
+            {
+                "zone_name": "person_label",
+                "x_percent": 0.15,
+                "y_percent": 0.85,
+                "width_percent": 0.2,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Who is chasing"
+            },
+            {
+                "zone_name": "balloon1",
+                "x_percent": 0.4,
+                "y_percent": 0.3,
+                "width_percent": 0.15,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "First thing being chased"
+            },
+            {
+                "zone_name": "balloon2",
+                "x_percent": 0.6,
+                "y_percent": 0.2,
+                "width_percent": 0.15,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Second thing being chased"
+            },
+            {
+                "zone_name": "balloon3",
+                "x_percent": 0.75,
+                "y_percent": 0.15,
+                "width_percent": 0.15,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 4,
+                "description": "Third thing being chased"
+            },
+            {
+                "zone_name": "balloon4",
+                "x_percent": 0.85,
+                "y_percent": 0.1,
+                "width_percent": 0.12,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 5,
+                "description": "Final/most desirable thing"
+            }
+        ],
+        "layout_type": "progressive_chase",
+        "optimal_text_count": 5
+    },
+    "217743513": {
+        "name": "UNO Draw 25 Cards",
+        "text_zones": [
+            {
+                "zone_name": "card_text",
+                "x_percent": 0.25,
+                "y_percent": 0.4,
+                "width_percent": 0.3,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What you have to do"
+            },
+            {
+                "zone_name": "choice_result",
+                "x_percent": 0.7,
+                "y_percent": 0.7,
+                "width_percent": 0.25,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "What you choose instead"
+            }
+        ],
+        "layout_type": "ultimatum_choice",
+        "optimal_text_count": 2
+    },
+    "97984": {
+        "name": "Disaster Girl",
+        "text_zones": [
+            {
+                "zone_name": "disaster_description",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The disaster/chaos being caused"
+            }
+        ],
+        "layout_type": "chaotic_satisfaction",
+        "optimal_text_count": 1
+    },
+    "80707627": {
+        "name": "Sad Pablo Escobar",
+        "text_zones": [
+            {
+                "zone_name": "waiting_alone",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "First panel - waiting/hoping"
+            },
+            {
+                "zone_name": "with_others",
+                "x_percent": 0.5,
+                "y_percent": 0.4,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Second panel - temporary happiness"
+            },
+            {
+                "zone_name": "alone_again",
+                "x_percent": 0.5,
+                "y_percent": 0.75,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Third panel - back to sadness"
+            }
+        ],
+        "layout_type": "emotional_cycle",
+        "optimal_text_count": 3
+    },
+    "135256802": {
+        "name": "Epic Handshake",
+        "text_zones": [
+            {
+                "zone_name": "left_person",
+                "x_percent": 0.15,
+                "y_percent": 0.1,
+                "width_percent": 0.25,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Left person/group"
+            },
+            {
+                "zone_name": "right_person",
+                "x_percent": 0.75,
+                "y_percent": 0.1,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Right person/group"
+            },
+            {
+                "zone_name": "agreement",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.6,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "What they agree on"
+            }
+        ],
+        "layout_type": "mutual_agreement",
+        "optimal_text_count": 3
+    },
+    "131940431": {
+        "name": "Gru's Plan",
+        "text_zones": [
+            {
+                "zone_name": "step1",
+                "x_percent": 0.6,
+                "y_percent": 0.15,
+                "width_percent": 0.35,
+                "height_percent": 0.18,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 1,
+                "description": "First step of plan"
+            },
+            {
+                "zone_name": "step2",
+                "x_percent": 0.6,
+                "y_percent": 0.4,
+                "width_percent": 0.35,
+                "height_percent": 0.18,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Second step of plan"
+            },
+            {
+                "zone_name": "step3",
+                "x_percent": 0.6,
+                "y_percent": 0.65,
+                "width_percent": 0.35,
+                "height_percent": 0.18,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Third step (often goes wrong)"
+            },
+            {
+                "zone_name": "reaction",
+                "x_percent": 0.6,
+                "y_percent": 0.85,
+                "width_percent": 0.35,
+                "height_percent": 0.12,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 4,
+                "description": "Gru's confused reaction"
+            }
+        ],
+        "layout_type": "plan_backfire",
+        "optimal_text_count": 4
+    },
+    "4087833": {
+        "name": "Waiting Skeleton",
+        "text_zones": [
+            {
+                "zone_name": "waiting_for",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "What you're waiting for (that will never come)"
+            }
+        ],
+        "layout_type": "eternal_wait",
+        "optimal_text_count": 1
+    },
+    "252600902": {
+        "name": "Always Has Been",
+        "text_zones": [
+            {
+                "zone_name": "realization",
+                "x_percent": 0.3,
+                "y_percent": 0.2,
+                "width_percent": 0.3,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "The shocking realization"
+            },
+            {
+                "zone_name": "confirmation",
+                "x_percent": 0.7,
+                "y_percent": 0.2,
+                "width_percent": 0.25,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Always has been confirmation"
+            }
+        ],
+        "layout_type": "dark_revelation",
+        "optimal_text_count": 2
+    },
+    "129242436": {
+        "name": "Change My Mind",
+        "text_zones": [
+            {
+                "zone_name": "controversial_statement",
+                "x_percent": 0.25,
+                "y_percent": 0.4,
+                "width_percent": 0.5,
+                "height_percent": 0.3,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Bold statement on the sign"
+            }
+        ],
+        "layout_type": "single_statement",
+        "optimal_text_count": 1
+    },
+    "322841258": {
+        "name": "Anakin Padme 4 Panel",
+        "text_zones": [
+            {
+                "zone_name": "anakin_statement",
+                "x_percent": 0.25,
+                "y_percent": 0.2,
+                "width_percent": 0.45,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Anakin's statement"
+            },
+            {
+                "zone_name": "padme_hopeful",
+                "x_percent": 0.75,
+                "y_percent": 0.2,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Padme's hopeful assumption"
+            },
+            {
+                "zone_name": "padme_worried",
+                "x_percent": 0.75,
+                "y_percent": 0.75,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Padme's worried realization"
+            }
+        ],
+        "layout_type": "dark_implication",
+        "optimal_text_count": 3
+    },
+    "438680": {
+        "name": "Batman Slapping Robin",
+        "text_zones": [
+            {
+                "zone_name": "robin_statement",
+                "x_percent": 0.7,
+                "y_percent": 0.1,
+                "width_percent": 0.25,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Robin's inappropriate statement"
+            },
+            {
+                "zone_name": "batman_correction",
+                "x_percent": 0.15,
+                "y_percent": 0.1,
+                "width_percent": 0.3,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Batman's correction"
+            }
+        ],
+        "layout_type": "correction_slap",
+        "optimal_text_count": 2
+    },
+    "91538330": {
+        "name": "X, X Everywhere",
+        "text_zones": [
+            {
+                "zone_name": "observation",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "What is everywhere"
+            }
+        ],
+        "layout_type": "observation_meme",
+        "optimal_text_count": 1
+    },
+    "188390779": {
+        "name": "Woman Yelling At Cat",
+        "text_zones": [
+            {
+                "zone_name": "woman_argument",
+                "x_percent": 0.2,
+                "y_percent": 0.1,
+                "width_percent": 0.35,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What the woman is saying/upset about"
+            },
+            {
+                "zone_name": "cat_response",
+                "x_percent": 0.7,
+                "y_percent": 0.1,
+                "width_percent": 0.25,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Cat's confused/innocent response"
+            }
+        ],
+        "layout_type": "argument_response",
+        "optimal_text_count": 2
+    },
+    "247375501": {
+        "name": "Buff Doge vs. Cheems",
+        "text_zones": [
+            {
+                "zone_name": "buff_doge_past",
+                "x_percent": 0.25,
+                "y_percent": 0.1,
+                "width_percent": 0.4,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Strong/impressive past version"
+            },
+            {
+                "zone_name": "cheems_present",
+                "x_percent": 0.75,
+                "y_percent": 0.1,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Weak/disappointing present version"
+            },
+            {
+                "zone_name": "comparison_context",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.6,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "What is being compared"
+            }
+        ],
+        "layout_type": "then_vs_now",
+        "optimal_text_count": 3
+    },
+    "309868304": {
+        "name": "Trade Offer",
+        "text_zones": [
+            {
+                "zone_name": "i_receive",
+                "x_percent": 0.25,
+                "y_percent": 0.3,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What I want to receive"
+            },
+            {
+                "zone_name": "you_receive",
+                "x_percent": 0.75,
+                "y_percent": 0.3,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "What you get in return"
+            }
+        ],
+        "layout_type": "trade_proposal",
+        "optimal_text_count": 2
+    },
+    "93895088": {
+        "name": "Expanding Brain",
+        "text_zones": [
+            {
+                "zone_name": "basic_level",
+                "x_percent": 0.6,
+                "y_percent": 0.15,
+                "width_percent": 0.35,
+                "height_percent": 0.15,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Basic/normal way of thinking"
+            },
+            {
+                "zone_name": "better_level",
+                "x_percent": 0.6,
+                "y_percent": 0.4,
+                "width_percent": 0.35,
+                "height_percent": 0.15,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Improved way of thinking"
+            },
+            {
+                "zone_name": "advanced_level",
+                "x_percent": 0.6,
+                "y_percent": 0.65,
+                "width_percent": 0.35,
+                "height_percent": 0.15,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Advanced way of thinking"
+            },
+            {
+                "zone_name": "galaxy_brain",
+                "x_percent": 0.6,
+                "y_percent": 0.85,
+                "width_percent": 0.35,
+                "height_percent": 0.12,
+                "alignment": "left",
+                "text_size": "small",
+                "priority": 4,
+                "description": "Ultimate enlightened thinking"
+            }
+        ],
+        "layout_type": "progressive_intelligence",
+        "optimal_text_count": 4
+    },
+    "61544": {
+        "name": "Success Kid",
+        "text_zones": [
+            {
+                "zone_name": "achievement",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The successful achievement"
+            }
+        ],
+        "layout_type": "victory_celebration",
+        "optimal_text_count": 1
+    },
+    "178591752": {
+        "name": "Tuxedo Winnie The Pooh",
+        "text_zones": [
+            {
+                "zone_name": "normal_version",
+                "x_percent": 0.6,
+                "y_percent": 0.25,
+                "width_percent": 0.35,
+                "height_percent": 0.2,
+                "alignment": "left",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Normal/basic version"
+            },
+            {
+                "zone_name": "fancy_version",
+                "x_percent": 0.6,
+                "y_percent": 0.75,
+                "width_percent": 0.35,
+                "height_percent": 0.2,
+                "alignment": "left",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Fancy/sophisticated version"
+            }
+        ],
+        "layout_type": "class_distinction",
+        "optimal_text_count": 2
+    },
+    "110163934": {
+        "name": "I Bet He's Thinking About Other Women",
+        "text_zones": [
+            {
+                "zone_name": "woman_thought",
+                "x_percent": 0.25,
+                "y_percent": 0.1,
+                "width_percent": 0.4,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What woman thinks he's thinking"
+            },
+            {
+                "zone_name": "man_actual_thought",
+                "x_percent": 0.75,
+                "y_percent": 0.1,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "What he's actually thinking about"
+            }
+        ],
+        "layout_type": "assumption_vs_reality",
+        "optimal_text_count": 2
+    },
+    "79132341": {
+        "name": "Bike Fall",
+        "text_zones": [
+            {
+                "zone_name": "person_label",
+                "x_percent": 0.3,
+                "y_percent": 0.1,
+                "width_percent": 0.15,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Who is falling"
+            },
+            {
+                "zone_name": "stick_label",
+                "x_percent": 0.7,
+                "y_percent": 0.4,
+                "width_percent": 0.25,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "What caused the problem"
+            },
+            {
+                "zone_name": "blame_target",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.4,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Who gets blamed instead"
+            }
+        ],
+        "layout_type": "self_sabotage_blame",
+        "optimal_text_count": 3
+    },
+    "61579": {
+        "name": "One Does Not Simply",
+        "text_zones": [
+            {
+                "zone_name": "impossible_task",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.8,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The impossible or difficult task"
+            }
+        ],
+        "layout_type": "impossibility_statement",
+        "optimal_text_count": 1
+    },
+    "124055727": {
+        "name": "Y'all Got Any More Of That",
+        "text_zones": [
+            {
+                "zone_name": "desired_thing",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.8,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "What you're craving/addicted to"
+            }
+        ],
+        "layout_type": "addiction_craving",
+        "optimal_text_count": 1
+    },
+    "101470": {
+        "name": "Ancient Aliens",
+        "text_zones": [
+            {
+                "zone_name": "phenomenon",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.8,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The unexplained phenomenon (answered with 'Aliens')"
+            }
+        ],
+        "layout_type": "aliens_explanation",
+        "optimal_text_count": 1
+    },
+    "180190441": {
+        "name": "They're The Same Picture",
+        "text_zones": [
+            {
+                "zone_name": "first_option",
+                "x_percent": 0.25,
+                "y_percent": 0.4,
+                "width_percent": 0.4,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "First supposedly different thing"
+            },
+            {
+                "zone_name": "second_option",
+                "x_percent": 0.75,
+                "y_percent": 0.4,
+                "width_percent": 0.2,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Second supposedly different thing"
+            },
+            {
+                "zone_name": "conclusion",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.6,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "They're the same picture"
+            }
+        ],
+        "layout_type": "false_distinction",
+        "optimal_text_count": 3
+    },
+    "148909805": {
+        "name": "Monkey Puppet",
+        "text_zones": [
+            {
+                "zone_name": "awkward_situation",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The awkward situation you're caught in"
+            }
+        ],
+        "layout_type": "awkward_caught",
+        "optimal_text_count": 1
+    },
+    "55311130": {
+        "name": "This Is Fine",
+        "text_zones": [
+            {
+                "zone_name": "situation_description",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The obviously not-fine situation"
+            }
+        ],
+        "layout_type": "ironic_calm",
+        "optimal_text_count": 1
+    },
+    "102156234": {
+        "name": "Mocking Spongebob",
+        "text_zones": [
+            {
+                "zone_name": "mocking_text",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "Text to mock (alternating caps)"
+            }
+        ],
+        "layout_type": "mocking_repetition",
+        "optimal_text_count": 1,
+        "special_formatting": "alternating_caps"
+    },
+    "177682295": {
+        "name": "You Guys are Getting Paid",
+        "text_zones": [
+            {
+                "zone_name": "surprised_realization",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The thing others are getting that you're not"
+            }
+        ],
+        "layout_type": "missing_out",
+        "optimal_text_count": 1
+    },
+    "119139145": {
+        "name": "Blank Nut Button",
+        "text_zones": [
+            {
+                "zone_name": "button_label",
+                "x_percent": 0.7,
+                "y_percent": 0.4,
+                "width_percent": 0.25,
+                "height_percent": 0.2,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What the button represents"
+            },
+            {
+                "zone_name": "person_label",
+                "x_percent": 0.2,
+                "y_percent": 0.7,
+                "width_percent": 0.2,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Who is pressing the button"
+            }
+        ],
+        "layout_type": "compulsive_action",
+        "optimal_text_count": 2
+    },
+    "1035805": {
+        "name": "Boardroom Meeting Suggestion",
+        "text_zones": [
+            {
+                "zone_name": "problem",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "The problem being discussed"
+            },
+            {
+                "zone_name": "suggestion1",
+                "x_percent": 0.2,
+                "y_percent": 0.35,
+                "width_percent": 0.25,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "First suggestion"
+            },
+            {
+                "zone_name": "suggestion2",
+                "x_percent": 0.5,
+                "y_percent": 0.35,
+                "width_percent": 0.25,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Second suggestion"
+            },
+            {
+                "zone_name": "bad_suggestion",
+                "x_percent": 0.8,
+                "y_percent": 0.35,
+                "width_percent": 0.15,
+                "height_percent": 0.12,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 4,
+                "description": "The suggestion that gets you thrown out"
+            }
+        ],
+        "layout_type": "boardroom_rejection",
+        "optimal_text_count": 4
+    },
+    "27813981": {
+        "name": "Hide the Pain Harold",
+        "text_zones": [
+            {
+                "zone_name": "painful_situation",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The painful situation being endured with a smile"
+            }
+        ],
+        "layout_type": "painful_smile",
+        "optimal_text_count": 1
+    },
+    "61520": {
+        "name": "Futurama Fry",
+        "text_zones": [
+            {
+                "zone_name": "uncertainty",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "medium",
+                "priority": 1,
+                "description": "The thing you're unsure about"
+            }
+        ],
+        "layout_type": "suspicious_uncertainty",
+        "optimal_text_count": 1
+    },
+    "226297822": {
+        "name": "Panik Kalm Panik",
+        "text_zones": [
+            {
+                "zone_name": "first_panic",
+                "x_percent": 0.5,
+                "y_percent": 0.2,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Initial panic situation"
+            },
+            {
+                "zone_name": "false_calm",
+                "x_percent": 0.5,
+                "y_percent": 0.5,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Brief moment of calm/relief"
+            },
+            {
+                "zone_name": "second_panic",
+                "x_percent": 0.5,
+                "y_percent": 0.8,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Renewed/worse panic"
+            }
+        ],
+        "layout_type": "panic_cycle",
+        "optimal_text_count": 3
+    },
+    "84341851": {
+        "name": "Evil Kermit",
+        "text_zones": [
+            {
+                "zone_name": "evil_suggestion",
+                "x_percent": 0.75,
+                "y_percent": 0.2,
+                "width_percent": 0.2,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "The evil suggestion from inner voice"
+            },
+            {
+                "zone_name": "context",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.8,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "The tempting situation context"
+            }
+        ],
+        "layout_type": "inner_evil_voice",
+        "optimal_text_count": 2
+    },
+    "155067746": {
+        "name": "Surprised Pikachu",
+        "text_zones": [
+            {
+                "zone_name": "cause",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "What you did"
+            },
+            {
+                "zone_name": "effect",
+                "x_percent": 0.5,
+                "y_percent": 0.35,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "The predictable consequence"
+            },
+            {
+                "zone_name": "reaction",
+                "x_percent": 0.5,
+                "y_percent": 0.85,
+                "width_percent": 0.6,
+                "height_percent": 0.1,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Surprised reaction"
+            }
+        ],
+        "layout_type": "predictable_surprise",
+        "optimal_text_count": 3
+    },
+    "134797956": {
+        "name": "American Chopper Argument",
+        "text_zones": [
+            {
+                "zone_name": "panel1",
+                "x_percent": 0.5,
+                "y_percent": 0.1,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 1,
+                "description": "Initial statement/argument"
+            },
+            {
+                "zone_name": "panel2",
+                "x_percent": 0.5,
+                "y_percent": 0.3,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 2,
+                "description": "Counter-argument"
+            },
+            {
+                "zone_name": "panel3",
+                "x_percent": 0.5,
+                "y_percent": 0.5,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 3,
+                "description": "Escalation of argument"
+            },
+            {
+                "zone_name": "panel4",
+                "x_percent": 0.5,
+                "y_percent": 0.7,
+                "width_percent": 0.8,
+                "height_percent": 0.15,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 4,
+                "description": "Peak of argument"
+            },
+            {
+                "zone_name": "panel5",
+                "x_percent": 0.5,
+                "y_percent": 0.9,
+                "width_percent": 0.8,
+                "height_percent": 0.08,
+                "alignment": "center",
+                "text_size": "small",
+                "priority": 5,
+                "description": "Resolution/final statement"
+            }
+        ],
+        "layout_type": "escalating_argument",
+        "optimal_text_count": 5
+    }
+}

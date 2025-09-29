@@ -1,0 +1,27 @@
+# AI Meme Generator Requirements
+
+# Core framework
+fastapi
+uvicorn[standard]
+pydantic
+
+# HTTP clients for APIs
+httpx
+requests
+
+# AI integration
+google-generativeai
+
+# Image processing
+pillow
+opencv-python
+numpy
+
+# Utilities
+python-dotenv
+aiofiles
+python-multipart
+
+# Optional: Enhanced text processing
+textblob
+beautifulsoup4
